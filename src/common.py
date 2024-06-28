@@ -88,6 +88,14 @@ def log_angle_rot(
     rot = Rotation.from_rotvec(vec).as_matrix()
     rotation_mat = start_rotation_mat @ rot
 
+    # left_inner_finger: str
+    # right_inner_finger: str
+    # for name in entity_to_transform:
+    #     if "left_inner_finger" in name:
+    #         left_inner_finger = name
+    #     if "right_inner_finger" in name:
+    #         right_inner_finger = name
+
     rr.log(
         entity_path, rr.Transform3D(translation=start_translation, mat3x3=rotation_mat)
     )

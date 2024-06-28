@@ -11,6 +11,18 @@ from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, e
 from rerun_loader_urdf import URDFLogger
 import argparse
 
+def ext_matrix(t, rot):
+    ext = np.eye(4)
+    ext[0:3, 0:3] = rot.T
+    ext[0:3, 3] = -rot.T @ t
+    return ext
+
+def ext_inv(t, rot):
+    ext = np.eye(4)
+    ext[0:3, 0:3] = rot
+    ext[0:3, 3] = t
+    return ext
+
 class StereoCamera:
     left_images: list[np.ndarray]
     right_images: list[np.ndarray]
@@ -167,11 +179,16 @@ class RawScene:
         """
 
         for camera_name, camera in self.cameras.items():
+                # MV
+                if camera_name != "ext1":
+                   continue
+
                 time_stamp_camera = self.trajectory["observation"]["timestamp"][
                     "cameras"
                 ][f"{self.serial[camera_name]}_estimated_capture"][i]
                 rr.set_time_nanos("real_time", time_stamp_camera * int(1e6))
 
+                # left view
                 extrinsics_left = self.trajectory["observation"]["camera_extrinsics"][
                     f"{self.serial[camera_name]}_left"
                 ][i]
@@ -193,6 +210,7 @@ class RawScene:
                     ),
                 ),
                 
+                # === right view
                 extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
                     f"{self.serial[camera_name]}_right"
                 ][i]
@@ -214,6 +232,7 @@ class RawScene:
                     ),
                 ),
 
+                # === depth view
                 depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
                 rotation = Rotation.from_euler(
                     "xyz", np.array(extrinsics_right[3:])
@@ -233,20 +252,61 @@ class RawScene:
                     ),
                 ),
 
+                # MV
+                intr = camera.left_intrinsic_mat  # [3, 3]
+                t = np.array(extrinsics_left[:3]) # [3]
+                rot = rotation                    # [3, 3]
+
+                pinhole = np.eye(4)[:3, :4]
+                ext = ext_matrix(t, rot)
+                self.left_proj_mat = intr @ pinhole @ ext
+
                 frames = camera.get_next_frame()
                 if frames:
                     left_image, right_image, depth_image = frames
+                    
+                    # MV
+                    from skimage.draw import disk
+
+                    cam = self.left_proj_mat @ self.ext_inv @ [0, 0, 0, 1] # [x*z, y*z, z]
+                    cam = cam / cam[2]
+                    x, y = cam[0], cam[1]
+                    
+                    imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
+                    # imginfo(left_image)
+
+                    left_image = left_image[:, :, ::-1]
+
+                    print("=== [x, y]", int(x), int(y))
+                    print("=== shape", left_image.shape)
+                    rows, cols = disk((y, x), 20, shape=left_image.shape)
+                    left_image[rows, cols] = [255, 0, 0]
+                    #input("continue...")
 
                     # Ignore points that are far away.
 
                     rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
-                    rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
+                    # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
 
                     if depth_image is not None:
                         depth_image[depth_image > 1.8] = 0
                         rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
 
     def log_action(self, i: int) -> None:
+        # MV
+        # pose = self.trajectory['observation']['robot_state']['cartesian_position'][i] # [6]
+        # pose = self.trajectory['action']['robot_state']['cartesian_position'][i]
+        # pose = self.trajectory['action']['target_cartesian_position'][i]
+        pose = self.trajectory['action']['cartesian_position'][i]
+        
+        trans, mat = extract_extrinsics(pose) # [3], [3, 3]
+        
+        # trans, mat = self.link7_3d
+        self.ext_inv = ext_inv(trans, mat)
+        # print("=== pose", self.ext_inv)
+        # input("continue")
+        # END MV
+        
         pose = self.trajectory['action']['cartesian_position'][i]
         trans, mat = extract_extrinsics(pose)
         rr.log('action/cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=mat))
@@ -313,9 +373,10 @@ class RawScene:
                 # We want to log the robot model here so that it appears in the right timeline
                 urdf_logger.log()
 
+            # MV
+            self.log_robot_state(i, urdf_logger.entity_to_transform)
             self.log_action(i)
             self.log_cameras_next(i)
-            self.log_robot_state(i, urdf_logger.entity_to_transform)
 
 def blueprint_raw():
     from rerun.blueprint import (
