@@ -32,11 +32,17 @@ def draw_sequence(image: np.array, points: list):
     colors = {}
     colors[1] = np.array([255, 0, 0])
     colors[2] = np.array([0, 255, 0])
+    colors[3] = np.array([0, 0, 255])
 
     for i, (x, y, color) in enumerate(points):
         rows, cols = disk((y, x), 5, shape=image.shape)
         k = i / len(points)
-        image[rows, cols] = colors[2] * (1-k) + colors[1] * k
+
+        color_mix = colors[2] * (1-k) + colors[1] * k
+        if color != 1:
+            color_mix = colors[color]
+        
+        image[rows, cols] = color_mix
 
     return image
 
@@ -162,6 +168,7 @@ class RawScene:
         with open(json_file_paths[0], "r") as metadata_file:
             self.metadata = json.load(metadata_file)
 
+        # MV
         self.trajectory = h5py.File(str(self.dir_path / "trajectory.h5"), "r")
         self.action = self.trajectory['action']
 
@@ -189,6 +196,8 @@ class RawScene:
         self.image: np.array = None
         self.points = [] # [(y, x, color)]
         self.first_touch = -1 # step number
+
+        self.finger_tip: np.array = None # [4, 4] link_to_world
 
 
     def log_cameras_next(self, i: int) -> None:
@@ -297,8 +306,6 @@ class RawScene:
                     left_image, right_image, depth_image = frames
                     
                     # MV
-                    from skimage.draw import disk
-
                     cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
                     cam = cam / cam[2]
                     x, y = cam[0], cam[1]
@@ -312,14 +319,18 @@ class RawScene:
 
                     if self.first_touch == i:
                         self.image = left_image.copy()
-                        self.points.append((x, y, 2))
+                        self.points.append((x, y, 1))
                     elif self.first_touch != -1:
                         self.points.append((x, y, 1))
 
                     left_image = draw_sequence(left_image, [(x, y, 1)])
-                    # rows, cols = disk((y, x), 20, shape=left_image.shape)
-                    # left_image[rows, cols] = [255, 0, 0]
-                    #input("continue...")
+
+                    # second projection
+                    if self.finger_tip is not None:
+                        cam = self.left_proj_mat @ (self.finger_tip @ [0, 0, 0, 1] ) # [x*z, y*z, z]
+                        cam = cam / cam[2]
+                        x, y = cam[0], cam[1]
+                        left_image = draw_sequence(left_image, [(x, y, 3)])
 
                     # Ignore points that are far away.
 
@@ -336,13 +347,10 @@ class RawScene:
         # pose = self.trajectory['action']['robot_state']['cartesian_position'][i]
         # pose = self.trajectory['action']['target_cartesian_position'][i]
         # pose = self.trajectory['action']['cartesian_position'][i]
-        
+
+        # Link to world coordinate
         trans, mat = extract_extrinsics(pose) # [3], [3, 3]
-        
-        # trans, mat = self.link7_3d
-        self.world_pos_3d = ext_inv(trans, mat)
-        # print("=== pose", self.ext_inv)
-        # input("continue")
+        self.world_pos_3d = ext_inv(trans, mat) # [4, 4]
         # END MV
         
         pose = self.trajectory['action']['cartesian_position'][i]
@@ -369,15 +377,26 @@ class RawScene:
         
         joint_angles = self.robot_state['joint_positions'][i]
         for joint_idx, angle in enumerate(joint_angles):
+            # MV
+            # get 3D position for string name of robot part
             log_angle_rot(entity_to_transform, joint_idx + 1, angle)
 
         if i > 1:
             lines = []
             for j in range(i-1, i+1):
+                # MV len(joint_angles) = 7
                 joint_angles = self.robot_state['joint_positions'][j]
                 joint_origins = []
                 for joint_idx in range(len(joint_angles)+1):
                     transform = link_to_world_transform(entity_to_transform, joint_angles, joint_idx+1)
+                    # MV
+                    if joint_idx == len(joint_angles):
+                        left_finger = 9
+                        left_transform = link_to_world_transform(entity_to_transform, joint_angles, left_finger)
+                        right_finger = 10
+                        right_transform = link_to_world_transform(entity_to_transform, joint_angles, right_finger)
+                        self.finger_tip = (left_transform + right_transform) / 2
+                        # END MV
                     joint_org = (transform @ np.array([0.0, 0.0, 0.0, 1.0]))[:3]
                     joint_origins.append(list(joint_org))
                 lines.append(joint_origins)
@@ -541,7 +560,7 @@ def main():
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
     args = parser.parse_args()
 
-    rr.init("DROID-visualized", spawn=False)
+    rr.init("DROID-visualized", spawn=True)
 
     urdf_logger = URDFLogger("franka_description/panda.urdf")
 

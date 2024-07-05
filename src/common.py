@@ -17,9 +17,32 @@ def link_to_world_transform(
     link: int,
 ) -> np.ndarray:
 
+    # MV
+    # import json
+    # print(json.dumps(list(entity_to_transform.keys()), indent=4))
+    # input("continue")
+
+    # len(joint_angles) == 7
+    # link = 1, ..., 8
+
+    # print("len(joint_angles)", len(joint_angles))
+    # print("link", link)
+
+    return_left_finger_tip: bool = False
+    return_right_finger_tip: bool = False
+    if link == 9:
+        return_left_finger_tip = True
+        link = 8
+    elif link == 10:
+        return_right_finger_tip = True
+        link = 8
+    # END MV
+
     tot_transform = np.eye(4)
     for i in range(1, link+1):
         entity_path = path_to_link(i)
+        # print("i", i)
+        # print("entity_path", entity_path)
 
         start_translation, start_rotation_mat = entity_to_transform[entity_path]
 
@@ -36,6 +59,52 @@ def link_to_world_transform(
         transform[:3,:3] = rotation_mat
         transform[:3,3] = start_translation
         tot_transform = tot_transform @ transform
+
+    # MV
+    if return_left_finger_tip:
+        # entity_path = "panda_link0/panda_link1/panda_link2/panda_link3/panda_link4/panda_link5/panda_link6/panda_link7/panda_link8/robotiq_85_base_link/left_inner_knuckle/left_inner_finger"
+        # i = 1, ..., link
+        # link = 1, ..., 8
+
+        appendix = "robotiq_85_base_link/left_inner_knuckle/left_inner_finger".split("/")
+        link_entity_path = path_to_link(8)
+        for i in range(len(appendix)):
+            entity_path = link_entity_path + "/" + "/".join(appendix[:i+1])
+            #print(entity_path)
+
+            start_translation, start_rotation_mat = entity_to_transform[entity_path]
+
+            angle_rad = 0
+            vec = np.array(np.array([0, 0, 1]) * angle_rad)
+            
+            rot = Rotation.from_rotvec(vec).as_matrix()
+            rotation_mat = start_rotation_mat @ rot
+            
+            transform = np.eye(4)
+            transform[:3,:3] = rotation_mat
+            transform[:3,3] = start_translation
+            tot_transform = tot_transform @ transform
+    #input("continue")
+
+    if return_right_finger_tip:
+        appendix = "robotiq_85_base_link/right_inner_knuckle/right_inner_finger".split("/")
+        link_entity_path = path_to_link(8)
+        for i in range(len(appendix)):
+            entity_path = link_entity_path + "/" + "/".join(appendix[:i+1])
+            #print(entity_path)
+
+            start_translation, start_rotation_mat = entity_to_transform[entity_path]
+
+            angle_rad = 0
+            vec = np.array(np.array([0, 0, 1]) * angle_rad)
+            
+            rot = Rotation.from_rotvec(vec).as_matrix()
+            rotation_mat = start_rotation_mat @ rot
+            
+            transform = np.eye(4)
+            transform[:3,:3] = rotation_mat
+            transform[:3,3] = start_translation
+            tot_transform = tot_transform @ transform
 
     return tot_transform
 
