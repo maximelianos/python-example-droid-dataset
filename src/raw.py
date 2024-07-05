@@ -12,16 +12,33 @@ from rerun_loader_urdf import URDFLogger
 import argparse
 
 def ext_matrix(t, rot):
+    # matrix to transform world PoV into camera PoV, C^-1
     ext = np.eye(4)
     ext[0:3, 0:3] = rot.T
     ext[0:3, 3] = -rot.T @ t
     return ext
 
 def ext_inv(t, rot):
+    # inverse matrix, C
     ext = np.eye(4)
     ext[0:3, 0:3] = rot
     ext[0:3, 3] = t
     return ext
+
+def draw_sequence(image: np.array, points: list):
+    # point: (x, y, color)
+    from skimage.draw import disk
+
+    colors = {}
+    colors[1] = np.array([255, 0, 0])
+    colors[2] = np.array([0, 255, 0])
+
+    for i, (x, y, color) in enumerate(points):
+        rows, cols = disk((y, x), 5, shape=image.shape)
+        k = i / len(points)
+        image[rows, cols] = colors[2] * (1-k) + colors[1] * k
+
+    return image
 
 class StereoCamera:
     left_images: list[np.ndarray]
@@ -166,6 +183,13 @@ class RawScene:
                 self.dir_path / "recordings",
                 self.serial[camera_name]
             )
+        
+        # MV
+        # draw trajectory on 2D image
+        self.image: np.array = None
+        self.points = [] # [(y, x, color)]
+        self.first_touch = -1 # step number
+
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -177,11 +201,17 @@ class RawScene:
         The motivation behind this is to avoid storing all the frames in a `list` because
         that would take up too much memory.
         """
+        print(i)
 
         for camera_name, camera in self.cameras.items():
                 # MV
                 if camera_name != "ext1":
                    continue
+                
+                if self.action['gripper_position'][i] > 0.5:
+                    if self.first_touch == -1:
+                        self.first_touch = i
+                # END
 
                 time_stamp_camera = self.trajectory["observation"]["timestamp"][
                     "cameras"
@@ -209,6 +239,16 @@ class RawScene:
                         mat3x3=rotation,
                     ),
                 ),
+
+                # MV
+                intr = camera.left_intrinsic_mat  # [3, 3]
+                t = np.array(extrinsics_left[:3]) # [3]
+                rot = rotation                    # [3, 3]
+
+                pinhole = np.eye(4)[:3, :4]
+                ext = ext_matrix(t, rot)
+                self.left_proj_mat = intr @ pinhole @ ext
+                # END
                 
                 # === right view
                 extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
@@ -252,15 +292,6 @@ class RawScene:
                     ),
                 ),
 
-                # MV
-                intr = camera.left_intrinsic_mat  # [3, 3]
-                t = np.array(extrinsics_left[:3]) # [3]
-                rot = rotation                    # [3, 3]
-
-                pinhole = np.eye(4)[:3, :4]
-                ext = ext_matrix(t, rot)
-                self.left_proj_mat = intr @ pinhole @ ext
-
                 frames = camera.get_next_frame()
                 if frames:
                     left_image, right_image, depth_image = frames
@@ -268,19 +299,26 @@ class RawScene:
                     # MV
                     from skimage.draw import disk
 
-                    cam = self.left_proj_mat @ self.ext_inv @ [0, 0, 0, 1] # [x*z, y*z, z]
+                    cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
                     cam = cam / cam[2]
                     x, y = cam[0], cam[1]
                     
                     imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
                     # imginfo(left_image)
+                    # print("=== [x, y]", int(x), int(y))
+                    # print("=== shape", left_image.shape)
 
                     left_image = left_image[:, :, ::-1]
 
-                    print("=== [x, y]", int(x), int(y))
-                    print("=== shape", left_image.shape)
-                    rows, cols = disk((y, x), 20, shape=left_image.shape)
-                    left_image[rows, cols] = [255, 0, 0]
+                    if self.first_touch == i:
+                        self.image = left_image.copy()
+                        self.points.append((x, y, 2))
+                    elif self.first_touch != -1:
+                        self.points.append((x, y, 1))
+
+                    left_image = draw_sequence(left_image, [(x, y, 1)])
+                    # rows, cols = disk((y, x), 20, shape=left_image.shape)
+                    # left_image[rows, cols] = [255, 0, 0]
                     #input("continue...")
 
                     # Ignore points that are far away.
@@ -294,15 +332,15 @@ class RawScene:
 
     def log_action(self, i: int) -> None:
         # MV
-        # pose = self.trajectory['observation']['robot_state']['cartesian_position'][i] # [6]
+        pose = self.trajectory['observation']['robot_state']['cartesian_position'][i] # [6]
         # pose = self.trajectory['action']['robot_state']['cartesian_position'][i]
         # pose = self.trajectory['action']['target_cartesian_position'][i]
-        pose = self.trajectory['action']['cartesian_position'][i]
+        # pose = self.trajectory['action']['cartesian_position'][i]
         
         trans, mat = extract_extrinsics(pose) # [3], [3, 3]
         
         # trans, mat = self.link7_3d
-        self.ext_inv = ext_inv(trans, mat)
+        self.world_pos_3d = ext_inv(trans, mat)
         # print("=== pose", self.ext_inv)
         # input("continue")
         # END MV
@@ -377,6 +415,15 @@ class RawScene:
             self.log_robot_state(i, urdf_logger.entity_to_transform)
             self.log_action(i)
             self.log_cameras_next(i)
+
+            if i > 400:
+                break
+
+    # MV
+    def draw_image(self, path):
+        from skimage import io
+        image = draw_sequence(self.image, self.points)
+        io.imsave(path, image, quality=90)
 
 def blueprint_raw():
     from rerun.blueprint import (
@@ -460,23 +507,51 @@ def blueprint_raw():
     return blueprint
 
 def main():
-    rr.init("DROID-visualized", spawn=True)
+    # rr.init("DROID-visualized", spawn=False)
+
+    # parser = argparse.ArgumentParser(
+    #     description="Visualizes the DROID dataset using Rerun."
+    # )
+
+    # parser.add_argument("--scene", required=True, type=Path)
+    # parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
+    # args = parser.parse_args()
+
+    # urdf_logger = URDFLogger(args.urdf)
+
+    # from raw import RawScene, blueprint_raw
+
+    # raw_scene = RawScene(args.scene)
+    # rr.send_blueprint(blueprint_raw())
+    # raw_scene.log(urdf_logger)
+
+    # MV
+    # droid_path = Path("../droid_raw")
+    # for p1 in sorted(droid_path.glob("*")):
+    #     if p1.is_dir():
+    #         for scene in sorted(p1.glob("*")):
+    #             if scene.is_dir():
 
     parser = argparse.ArgumentParser(
         description="Visualizes the DROID dataset using Rerun."
     )
 
     parser.add_argument("--scene", required=True, type=Path)
+    parser.add_argument("--plot", default="plot.jpg", type=Path)
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
     args = parser.parse_args()
 
-    urdf_logger = URDFLogger(args.urdf)
+    rr.init("DROID-visualized", spawn=False)
+
+    urdf_logger = URDFLogger("franka_description/panda.urdf")
 
     from raw import RawScene, blueprint_raw
 
     raw_scene = RawScene(args.scene)
     rr.send_blueprint(blueprint_raw())
     raw_scene.log(urdf_logger)
+
+    raw_scene.draw_image(args.plot)
 
 if __name__ == "__main__":
     main()

@@ -6,3 +6,6 @@ data/
 /metadata.json
 aggregated-annotations-030724.json
 shell.nix
+
+.idea/
+plot/
