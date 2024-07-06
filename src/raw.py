@@ -366,12 +366,13 @@ class RawScene:
         for j, vel in enumerate(self.trajectory['action']['cartesian_position'][i]):
             rr.log(f'action/joint_velocity/{j}', rr.Scalar(vel))
 
-        pose = self.trajectory['action']['target_cartesian_position'][i]
-        trans, mat = extract_extrinsics(pose)
-        rr.log('action/target_cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=mat))
-        rr.log('action/target_cartesian_position/origin', rr.Points3D([trans]))
+        # === target_cartesian_position
+        # pose = self.trajectory['action']['target_cartesian_position'][i]
+        # trans, mat = extract_extrinsics(pose)
+        # rr.log('action/target_cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=mat))
+        # rr.log('action/target_cartesian_position/origin', rr.Points3D([trans]))
 
-        rr.log('action/target_gripper_position', rr.Scalar(self.action['target_gripper_position'][i]))
+        # rr.log('action/target_gripper_position', rr.Scalar(self.action['target_gripper_position'][i]))
         
     def log_robot_state(self, i: int, entity_to_transform: dict[str, tuple[np.ndarray, np.ndarray]]) -> None:
         

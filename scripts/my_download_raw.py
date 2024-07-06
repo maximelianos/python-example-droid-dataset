@@ -64,9 +64,15 @@ def main():
 
     with open(target_dir / annotations_file_name) as f:
         annotations = json.load(f)
-    
+
+    # MV: created special file to convert uuid to path
+    # === result scheme
+    # === { "IRIS+ef107c48+2023-03-02-15h-14m-31s": IRIS/success/(date)/(time) }
+    with open("existing_episodes.json") as f:
+        existing_episodes = json.load(f)
+
     print("episodes:", len(annotations.keys()))
-    selected_episodes = {}
+    selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"instruction1":..., "instruction2:..., "instruction3":...}}
     for date in annotations:
         for lang_i in annotations[date]:
             description = annotations[date][lang_i]
@@ -75,16 +81,13 @@ def main():
                 break
 
     print("selected:", len(selected_episodes))
+    selected_list = list(selected_episodes.keys())[::10][:100] # each 10-th episode, at most 100
 
-    # each 10-th episode, at most 100
-    to_select = list(selected_episodes.keys())[::10][:100]
-    selected_s = {}
-    for date in to_select:
-        selected_s[date] = selected_episodes[date]
-    #print(json.dumps(selected_s, indent=4))
-
-    for key in to_select:
+    for key in selected_list:
         # IPRL+w026bb9b+2023-04-20-23h-28m-09s
+
+        if not key in existing_episodes:
+            continue
 
         regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
         date_str = re.findall(regex, key)[0]
@@ -92,22 +95,20 @@ def main():
         import datetime as dt
         date = dt.datetime.strptime(date_str, "%Y-%m-%d-%Hh-%Mm-%Ss")
 
-        # download selected episode
         print("=== download", key)
         #date = datetime.strptime(date, "%Y-%b-%d_%H:%M:%S")
         formated_date = date.strftime("%Y-%m-%d-%Hh-%Mm-%Ss")
 
-
         org = None
-        for key in annotations.keys():
-            if formated_date in key:
-                org = key.split("+")[0]
-
-        def day_to_str(day: int):
-            return f"{day:_>2}"
-
+        for key_a in annotations.keys():
+            if formated_date in key_a:
+                org = key_a.split("+")[0]
 
         rel_path = f"success/{date.year}-{date.month:0>2}-{date.day:0>2}"
+
+        # BAD CODE BEGIN
+        def day_to_str(day: int):
+            return f"{day:_>2}"
 
         variants = [
             f"gs://gresearch/robotics/droid_raw/1.0.1/{org}/"
@@ -129,19 +130,23 @@ def main():
             + day_to_str(date.day)
             + date.strftime("_%H_%M_%S_%Y"),
         ]
+        # for src_path in variants:
 
-        for src_path in variants:
-            dst_path = target_dir / rel_path
-            dst_path.mkdir(parents=True, exist_ok=True)
-            command = ["gsutil", "-m", "cp", "-n", "-r", src_path, dst_path]
-            print(f'Running: "{" ".join(map(str, command))}"')
-            p: subprocess.CompletedProcess = subprocess.run(command)
+        # BAD CODE END
 
-            if p.returncode == 0:
-                print("sucess!")
-                break
+        # === gs://gresearch/robotics/droid_raw/1.0.1/ <- root for existing_episodes
+        src_path = f"gs://gresearch/robotics/droid_raw/1.0.1/" + existing_episodes[key]
+        dst_path = target_dir / rel_path
+        dst_path.mkdir(parents=True, exist_ok=True)
+        command = ["gsutil", "-m", "cp", "-n", "-r", src_path, dst_path]
+        print(f'Running: "{" ".join(map(str, command))}"')
+        input("continue")
+        p: subprocess.CompletedProcess = subprocess.run(command)
 
-        #input("continue")
+        if p.returncode == 0:
+            print("success!")
+
+        input("continue")
 
 if __name__ == "__main__":
     main()
