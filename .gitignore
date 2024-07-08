@@ -8,4 +8,5 @@ aggregated-annotations-030724.json
 shell.nix
 
 .idea/
+.ipynb_checkpoints/
 plot/

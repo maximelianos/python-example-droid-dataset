@@ -157,8 +157,12 @@ class RawScene:
     trajectory_length: int
     metadata: dict
     cameras: dict[str, StereoCamera]
+    visualize: bool
 
-    def __init__(self, dir_path: Path):
+    def __init__(self,
+                 dir_path: Path,
+                 visualize: bool
+            ):
         self.dir_path = dir_path
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
@@ -193,11 +197,19 @@ class RawScene:
         
         # MV
         # draw trajectory on 2D image
-        self.image: np.array = None
+        self.image: np.array = None # first image with gripper
         self.points = [] # [(y, x, color)]
         self.first_touch = -1 # step number
-
         self.finger_tip: np.array = None # [4, 4] link_to_world
+
+        # gripper statistics
+        self.is_gripper_closed = False
+        self.FPS = 20 # fps about 20
+        self.gripper_close_count = 0
+        self.gripper_duration = 0
+
+        self.visible_points = 0 # is projected 2D point visible
+        self.visualize = visualize
 
 
     def log_cameras_next(self, i: int) -> None:
@@ -216,10 +228,27 @@ class RawScene:
                 # MV
                 if camera_name != "ext1":
                    continue
-                
-                if self.action['gripper_position'][i] > 0.5:
+
+                counts = [0, 0] # gripper OFF, gripper ON
+                gripper_len = len(self.action['gripper_position'])
+                for j in range(max(0, i - self.FPS), min(gripper_len, i + self.FPS)):
+                    if self.action['gripper_position'][i] > 0.5:
+                        counts[1] += 1
+                    else:
+                        counts[0] += 1
+
+                if counts[0] == 0:
+                    if self.is_gripper_closed == False:
+                        self.gripper_close_count += 1
                     if self.first_touch == -1:
                         self.first_touch = i
+
+                    self.is_gripper_closed = True
+                elif counts[1] == 0:
+                    self.is_gripper_closed = False
+
+                if self.is_gripper_closed:
+                    self.gripper_duration += 1
                 # END
 
                 time_stamp_camera = self.trajectory["observation"]["timestamp"][
@@ -306,7 +335,11 @@ class RawScene:
                     left_image, right_image, depth_image = frames
                     
                     # MV
-                    cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
+                    if self.finger_tip is None:
+                        continue
+
+                    # first projection
+                    cam = self.left_proj_mat @ (self.finger_tip @ [0, 0, 0, 1] ) # [x*z, y*z, z]
                     cam = cam / cam[2]
                     x, y = cam[0], cam[1]
                     
@@ -317,29 +350,36 @@ class RawScene:
 
                     left_image = left_image[:, :, ::-1]
 
+                    if self.image is None:
+                        self.image = left_image.copy()
+
                     if self.first_touch == i:
                         self.image = left_image.copy()
                         self.points.append((x, y, 1))
                     elif self.first_touch != -1:
                         self.points.append((x, y, 1))
 
-                    left_image = draw_sequence(left_image, [(x, y, 1)])
+                    left_image = draw_sequence(left_image, [(x, y, 3)])
+
+                    h, w, c = left_image.shape
+                    if 0 <= y < h and 0 <= x < w:
+                        self.visible_points += 1
 
                     # second projection
-                    if self.finger_tip is not None:
-                        cam = self.left_proj_mat @ (self.finger_tip @ [0, 0, 0, 1] ) # [x*z, y*z, z]
-                        cam = cam / cam[2]
-                        x, y = cam[0], cam[1]
-                        left_image = draw_sequence(left_image, [(x, y, 3)])
+                    cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
+                    cam = cam / cam[2]
+                    x, y = cam[0], cam[1]
+                    left_image = draw_sequence(left_image, [(x, y, 2)])
 
                     # Ignore points that are far away.
 
-                    rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
-                    # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
+                    if self.visualize:
+                        rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
+                        # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
 
-                    if depth_image is not None:
-                        depth_image[depth_image > 1.8] = 0
-                        rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
+                        if depth_image is not None:
+                            depth_image[depth_image > 1.8] = 0
+                            rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
 
     def log_action(self, i: int) -> None:
         # MV
@@ -436,8 +476,8 @@ class RawScene:
             self.log_action(i)
             self.log_cameras_next(i)
 
-            if i > 400:
-                break
+            if i > 600:
+               break
 
     # MV
     def draw_image(self, path):
@@ -558,20 +598,32 @@ def main():
 
     parser.add_argument("--scene", required=True, type=Path)
     parser.add_argument("--plot", default="plot.jpg", type=Path)
+    parser.add_argument('--visualize', action='store_true')
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
     args = parser.parse_args()
 
-    rr.init("DROID-visualized", spawn=True)
+    # args.visualize: bool
+    rr.init("DROID-visualized", spawn=args.visualize) # MV
 
     urdf_logger = URDFLogger("franka_description/panda.urdf")
 
     from raw import RawScene, blueprint_raw
 
-    raw_scene = RawScene(args.scene)
+    raw_scene: RawScene = RawScene(args.scene, args.visualize)
     rr.send_blueprint(blueprint_raw())
     raw_scene.log(urdf_logger)
 
+    # MV
     raw_scene.draw_image(args.plot)
+
+    logdata = {
+        "visible_points": raw_scene.visible_points,
+        "gripper_closed_times": raw_scene.gripper_close_count,
+        "gripper_duration": raw_scene.gripper_duration,
+        "episode_duration": raw_scene.trajectory_length
+    }
+    with open("single_log.json", "w") as f:
+        json.dump(logdata, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
     main()
