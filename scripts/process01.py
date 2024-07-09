@@ -45,5 +45,5 @@ for org in droid_root.iterdir():
 
             result[metadata["uuid"]] = str(time.relative_to(droid_root))
 
-with open("existing_episodes.json", "w") as f:
+with open("data/existing_episodes.json", "w") as f:
     json.dump(result, f, indent=4, ensure_ascii=False)

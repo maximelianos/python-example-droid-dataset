@@ -69,7 +69,7 @@ def main():
     # MV: created special file to convert uuid to path
     # === result scheme
     # === { "IRIS+ef107c48+2023-03-02-15h-14m-31s": IRIS/success/(date)/(time) }
-    with open("existing_episodes.json") as f:
+    with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
 
     # remove all non-existing episodes!

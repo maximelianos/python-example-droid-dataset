@@ -1,3 +1,11 @@
-src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-14/Fri_Apr_14_15_48_04_2023/
-src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-15/Mon_May_15_22:37:44_2023 (not bad)
-src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-17/Wed_May_17_21:37:15_2023 (830, 335)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_14_58_51_2023 (shadow is difference, ok)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-03/Fri_Mar__3_15_28_29_2023 (easy example)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-06/Mon_Mar__6_17_24_17_2023 (normal example)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-09/Thu_Mar__9_19_50_27_2023 (hard, ok)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-12/Wed_Apr_12_14:13:32_2023 (a little more movement at the end and ok)
+
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-16/Tue_May_16_15:00:56_2023 (ok)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-17/Wed_May_17_18:21:07_2023 (ok)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-20/Thu_Apr_20_14:28:23_2023 (ok)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-11/Thu_May_11_17:14:22_2023 (so-so, camera shaking)
+src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-05-05/Fri_May__5_11:15:43_2023 (very bad)

@@ -36,17 +36,18 @@ def draw_sequence(image: np.array, points: list):
     colors[2] = np.array([0, 255, 0])
     colors[3] = np.array([0, 0, 255])
 
+    canvas = np.copy(image)
     for i, (x, y, color) in enumerate(points):
-        rows, cols = disk((y, x), 5, shape=image.shape)
+        rows, cols = disk((y, x), 5, shape=canvas.shape)
         k = i / len(points)
 
         color_mix = colors[2] * (1-k) + colors[1] * k
         if color != 1:
             color_mix = colors[color]
         
-        image[rows, cols] = color_mix
+        canvas[rows, cols] = color_mix
 
-    return image
+    return canvas
 
 class StereoCamera:
     left_images: list[np.ndarray]
@@ -208,7 +209,7 @@ class RawScene:
 
         # gripper statistics
         self.is_gripper_closed = False
-        self.FPS = 20 # fps about 20
+        self.FPS = 14
         self.gripper_close_count = 0
         self.gripper_duration = 0
 
@@ -222,6 +223,13 @@ class RawScene:
         self.episode_begin_img: np.array = None
         self.max_distance_img: np.array = None
 
+        # save a few images close to grip moment
+        # [ -8, -6, -4, -2, t_grip ]
+        # intuition: 1) after grip, the object area doesn't change often
+        # 2) after grip, robot region changes before max frame, and object doesn't
+        self.max_touch_2d: np.array = None # [x, y, 1]
+        self.last_images: list = [] # (i, frame_i)
+        self.final_last_images: list = None # pointer to images that will be saved
 
 
     def log_cameras_next(self, i: int) -> None:
@@ -354,6 +362,13 @@ class RawScene:
                     if self.episode_begin_img is None:
                         self.episode_begin_img = left_image
 
+                    # add to last image queue (i, frame)
+                    if len(self.last_images) == 0 or i - self.last_images[-1][0] > 14 * 1:
+                        # more than 1 sec passed
+                        if len(self.last_images) > 5:
+                            self.last_images.pop(0)
+                        self.last_images.append((i, left_image))
+
                     # first projection
                     point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
                     point_3d = point_3d / point_3d[3]
@@ -376,12 +391,15 @@ class RawScene:
                     elif self.first_touch != -1:
                         # after first touch
                         self.points.append((x, y, 1))
+
+                        # take max distance from gripper closure
                         cur_distance = np.sum((point_3d - self.first_touch_3d) ** 2)
                         if cur_distance > self.max_distance:
                             self.max_distance = cur_distance
                             self.max_distance_i = i
                             self.max_distance_img = left_image
-                            print("new max distance", self.max_distance)
+                            self.max_touch_2d = point_2d
+                            self.final_last_images = self.last_images.copy()
 
 
                     left_image = draw_sequence(left_image, [(x, y, 3)])
@@ -509,10 +527,14 @@ class RawScene:
         image = draw_sequence(self.image, self.points)
         io.imsave(path, image, quality=90)
 
+        # last images
+        for i, image in self.last_images:
+            io.imsave(f"data/last_{i:0>4}.jpg", image, quality=90)
+
         # difference image
         print("first touch 2d", self.first_touch_2d)
-        io.imsave("first_image.jpg", self.episode_begin_img, quality=90)
-        io.imsave("max_image.jpg", self.max_distance_img, quality=90)
+        io.imsave("data/first_image.jpg", self.episode_begin_img, quality=90)
+        io.imsave("data/max_image.jpg", self.max_distance_img, quality=90)
 
 
 def blueprint_raw():
@@ -597,40 +619,21 @@ def blueprint_raw():
     return blueprint
 
 def main():
-    # rr.init("DROID-visualized", spawn=False)
-
-    # parser = argparse.ArgumentParser(
-    #     description="Visualizes the DROID dataset using Rerun."
-    # )
-
-    # parser.add_argument("--scene", required=True, type=Path)
-    # parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
-    # args = parser.parse_args()
-
-    # urdf_logger = URDFLogger(args.urdf)
-
-    # from raw import RawScene, blueprint_raw
-
-    # raw_scene = RawScene(args.scene)
-    # rr.send_blueprint(blueprint_raw())
-    # raw_scene.log(urdf_logger)
-
     # MV
-    # droid_path = Path("../droid_raw")
-    # for p1 in sorted(droid_path.glob("*")):
-    #     if p1.is_dir():
-    #         for scene in sorted(p1.glob("*")):
-    #             if scene.is_dir():
-
     parser = argparse.ArgumentParser(
         description="Visualizes the DROID dataset using Rerun."
     )
 
     parser.add_argument("--scene", required=True, type=Path)
-    parser.add_argument("--plot", default="plot.jpg", type=Path)
+    parser.add_argument("--plot", default="data/plot.jpg", type=Path)
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
     args = parser.parse_args()
+
+    # remove leftover files
+    last_images = Path("data").glob("last*jpg")
+    for file in last_images:
+        file.unlink()
 
     # args.visualize: bool
     rr.init("DROID-visualized", spawn=args.visualize) # MV
@@ -652,9 +655,10 @@ def main():
         "visible_points": raw_scene.visible_points,
         "gripper_closed_times": raw_scene.gripper_close_count,
         "gripper_duration": raw_scene.gripper_duration,
-        "episode_duration": raw_scene.trajectory_length
+        "episode_duration": raw_scene.trajectory_length,
+        "first_touch": list(raw_scene.first_touch_2d),
     }
-    with open("single_log.json", "w") as f:
+    with open("data/single_log.json", "w") as f:
         json.dump(logdata, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
