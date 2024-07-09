@@ -20,7 +20,7 @@ for date in sorted(data.iterdir()):
     for episode in sorted(date.iterdir()):
         episodes.append(episode)
         print(f"{len(episodes): >4}", episode)
-# INTER
+print("episodes:", len(episodes))
 input("continue...")
 
 """
@@ -62,7 +62,7 @@ for episode in episodes:
     plot_path = Path("plot") / (uuid + ".jpg")
     print("plot path:", plot_path)
 
-    command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path] # INTER
+    command = ["src/raw.py", "--scene", str(episode), "--plot", plot_path] # INTER
     print(f'Running: "{" ".join(map(str, command))}"')
     p: subprocess.CompletedProcess = subprocess.run(command)
 
@@ -85,4 +85,4 @@ for episode in episodes:
     with open("complete_log.json", "w") as f:
         json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-    input("continue") # INTER
+    # input("continue") # INTER

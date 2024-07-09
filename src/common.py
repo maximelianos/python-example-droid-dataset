@@ -17,6 +17,10 @@ def link_to_world_transform(
     link: int,
 ) -> np.ndarray:
 
+    """
+    :return: [4, 4] transform matrix
+    """
+
     # MV
     # import json
     # print(json.dumps(list(entity_to_transform.keys()), indent=4))

@@ -11,6 +11,8 @@ from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, e
 from rerun_loader_urdf import URDFLogger
 import argparse
 
+from skimage import io
+
 def ext_matrix(t, rot):
     # matrix to transform world PoV into camera PoV, C^-1
     ext = np.eye(4)
@@ -114,7 +116,7 @@ class StereoCamera:
                 raise Exception(f"unable to video file for camera {serial}")
 
             self.cap = cv2.VideoCapture(str(mp4_path))
-            print(f"opening {mp4_path}")
+            # print(f"opening {mp4_path}")
 
 
     def get_next_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray | None] | None:
@@ -149,7 +151,7 @@ class StereoCamera:
                 right_image = frame[:,1280:,:]
                 return (left_image, right_image, None)
             else:
-                print("empty!")
+                # print("empty!")
                 return None
 
 class RawScene:
@@ -157,13 +159,14 @@ class RawScene:
     trajectory_length: int
     metadata: dict
     cameras: dict[str, StereoCamera]
-    visualize: bool
 
     def __init__(self,
                  dir_path: Path,
                  visualize: bool
             ):
         self.dir_path = dir_path
+        # MV
+        self.visualize = visualize
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
         if len(json_file_paths) < 1:
@@ -178,7 +181,8 @@ class RawScene:
 
         # We ignore the robot_state under action/, don't know why where is two different robot_states.
         self.robot_state = self.trajectory['observation']['robot_state']
-        h5_tree(self.trajectory)
+        if self.visualize:
+            h5_tree(self.trajectory)
 
         self.trajectory_length = self.metadata["trajectory_length"]
 
@@ -200,7 +204,7 @@ class RawScene:
         self.image: np.array = None # first image with gripper
         self.points = [] # [(y, x, color)]
         self.first_touch = -1 # step number
-        self.finger_tip: np.array = None # [4, 4] link_to_world
+        self.finger_tip: np.array = np.eye(4) # [4, 4] link_to_world
 
         # gripper statistics
         self.is_gripper_closed = False
@@ -209,7 +213,15 @@ class RawScene:
         self.gripper_duration = 0
 
         self.visible_points = 0 # is projected 2D point visible
-        self.visualize = visualize
+
+        # compute difference image
+        self.first_touch_3d: np.array = None
+        self.first_touch_2d: np.array = None
+        self.max_distance: float = 0
+        self.max_distance_i: int = -1
+        self.episode_begin_img: np.array = None
+        self.max_distance_img: np.array = None
+
 
 
     def log_cameras_next(self, i: int) -> None:
@@ -222,13 +234,13 @@ class RawScene:
         The motivation behind this is to avoid storing all the frames in a `list` because
         that would take up too much memory.
         """
-        print(i)
 
         for camera_name, camera in self.cameras.items():
                 # MV
                 if camera_name != "ext1":
                    continue
 
+                # === threshold gripper state
                 counts = [0, 0] # gripper OFF, gripper ON
                 gripper_len = len(self.action['gripper_position'])
                 for j in range(max(0, i - self.FPS), min(gripper_len, i + self.FPS)):
@@ -238,6 +250,7 @@ class RawScene:
                         counts[0] += 1
 
                 if counts[0] == 0:
+                    # gripper always on
                     if self.is_gripper_closed == False:
                         self.gripper_close_count += 1
                     if self.first_touch == -1:
@@ -245,6 +258,7 @@ class RawScene:
 
                     self.is_gripper_closed = True
                 elif counts[1] == 0:
+                    # gripper always off
                     self.is_gripper_closed = False
 
                 if self.is_gripper_closed:
@@ -335,29 +349,40 @@ class RawScene:
                     left_image, right_image, depth_image = frames
                     
                     # MV
-                    if self.finger_tip is None:
-                        continue
+                    left_image = left_image[:, :, ::-1]
+
+                    if self.episode_begin_img is None:
+                        self.episode_begin_img = left_image
 
                     # first projection
-                    cam = self.left_proj_mat @ (self.finger_tip @ [0, 0, 0, 1] ) # [x*z, y*z, z]
-                    cam = cam / cam[2]
-                    x, y = cam[0], cam[1]
+                    point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
+                    point_3d = point_3d / point_3d[3]
+                    point_2d = self.left_proj_mat @ point_3d
+                    point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
+                    x, y = point_2d[0], point_2d[1]
                     
                     imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
-                    # imginfo(left_image)
-                    # print("=== [x, y]", int(x), int(y))
-                    # print("=== shape", left_image.shape)
-
-                    left_image = left_image[:, :, ::-1]
 
                     if self.image is None:
                         self.image = left_image.copy()
 
                     if self.first_touch == i:
+                        # frame of first touch
                         self.image = left_image.copy()
                         self.points.append((x, y, 1))
+
+                        self.first_touch_3d = point_3d
+                        self.first_touch_2d = point_2d
                     elif self.first_touch != -1:
+                        # after first touch
                         self.points.append((x, y, 1))
+                        cur_distance = np.sum((point_3d - self.first_touch_3d) ** 2)
+                        if cur_distance > self.max_distance:
+                            self.max_distance = cur_distance
+                            self.max_distance_i = i
+                            self.max_distance_img = left_image
+                            print("new max distance", self.max_distance)
+
 
                     left_image = draw_sequence(left_image, [(x, y, 3)])
 
@@ -481,9 +506,14 @@ class RawScene:
 
     # MV
     def draw_image(self, path):
-        from skimage import io
         image = draw_sequence(self.image, self.points)
         io.imsave(path, image, quality=90)
+
+        # difference image
+        print("first touch 2d", self.first_touch_2d)
+        io.imsave("first_image.jpg", self.episode_begin_img, quality=90)
+        io.imsave("max_image.jpg", self.max_distance_img, quality=90)
+
 
 def blueprint_raw():
     from rerun.blueprint import (
@@ -614,6 +644,8 @@ def main():
     raw_scene.log(urdf_logger)
 
     # MV
+    plot_dir = Path(args.plot).parent
+    plot_dir.mkdir(parents=True, exist_ok=True)
     raw_scene.draw_image(args.plot)
 
     logdata = {
