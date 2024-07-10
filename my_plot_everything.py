@@ -20,6 +20,18 @@ for date in sorted(data.iterdir()):
     for episode in sorted(date.iterdir()):
         episodes.append(episode)
         print(f"{len(episodes): >4}", episode)
+
+exclude = [
+    #"data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_14_58_51_2023"
+]
+for ex_ep in exclude:
+    for i in range(len(episodes)):
+        if ex_ep in str(episodes[i]):
+            episodes.pop(i)
+            print("removed", ex_ep)
+            break
+            
+
 print("episodes:", len(episodes))
 input("continue...")
 
@@ -37,8 +49,8 @@ log structure:
 """
 complete_log = []
 
-if Path("complete_log.json").exists():
-    with open("complete_log.json", "r") as f:
+if Path("data/complete_log.json").exists():
+    with open("data/complete_log.json", "r") as f:
         complete_log = json.load(f)
 
 print("episodes", len(episodes))
@@ -62,12 +74,12 @@ for episode in episodes:
     plot_path = Path("plot") / (uuid + ".jpg")
     print("plot path:", plot_path)
 
-    command = ["src/raw.py", "--scene", str(episode), "--plot", plot_path] # INTER
+    command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path] # INTER
     print(f'Running: "{" ".join(map(str, command))}"')
     p: subprocess.CompletedProcess = subprocess.run(command)
 
     # read json of completed episode
-    with open("single_log.json", "r") as f:
+    with open("data/single_log.json", "r") as f:
         single_episode = json.load(f)
 
     complete_log.append({
@@ -82,7 +94,7 @@ for episode in episodes:
         "episode_duration": single_episode["episode_duration"]
     })
 
-    with open("complete_log.json", "w") as f:
+    with open("data/complete_log.json", "w") as f:
         json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-    # input("continue") # INTER
+    input("continue") # INTER

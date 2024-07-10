@@ -38,14 +38,17 @@ def draw_sequence(image: np.array, points: list):
 
     canvas = np.copy(image)
     for i, (x, y, color) in enumerate(points):
-        rows, cols = disk((y, x), 5, shape=canvas.shape)
+        rows, cols = disk((y, x), 8, shape=canvas.shape)
         k = i / len(points)
 
-        color_mix = colors[2] * (1-k) + colors[1] * k
-        if color != 1:
-            color_mix = colors[color]
+        if color == 1:
+            # hardcoded mix
+            canvas[rows, cols] = colors[2] * (1-k) + colors[1] * k
+        else:
+            # preset color
+            canvas[rows, cols] = colors[color]
         
-        canvas[rows, cols] = color_mix
+        
 
     return canvas
 
@@ -199,6 +202,17 @@ class RawScene:
                 self.dir_path / "recordings",
                 self.serial[camera_name]
             )
+        
+        # MV compute FPS
+        time_stamp_list = self.trajectory["observation"]["timestamp"][
+            "cameras"
+        ][f"{self.serial[camera_name]}_estimated_capture"]
+
+        frame_count = len(time_stamp_list)
+        t_total = float(time_stamp_list[-1] - time_stamp_list[0]) # microsec
+        t_total /= 1000
+        print("episode sec", int(t_total))
+        print("fps {:.2f}".format(frame_count / t_total))
         
         # MV
         # draw trajectory on 2D image
@@ -650,6 +664,7 @@ def main():
     plot_dir = Path(args.plot).parent
     plot_dir.mkdir(parents=True, exist_ok=True)
     raw_scene.draw_image(args.plot)
+    raw_scene.draw_image("data/plot.jpg")
 
     logdata = {
         "visible_points": raw_scene.visible_points,

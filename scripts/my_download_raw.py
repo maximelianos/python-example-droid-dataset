@@ -84,12 +84,13 @@ def main():
     for date in annotations:
         for lang_i in annotations[date]:
             description = annotations[date][lang_i]
-            if "put" in description and "marker" in description and len(description) < 50:
+            if "put" in description and "marker" in description:
                 selected_episodes[date] = annotations[date]
                 break
 
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())[::10][:100] # each 10-th episode, at most 100
+    print("to download:", len(selected_list))
     input("continue...")
 
     for uuid in selected_list:
