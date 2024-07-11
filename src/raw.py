@@ -4,23 +4,27 @@ from pathlib import Path
 import rerun as rr
 import cv2
 from scipy.spatial.transform import Rotation
+from skimage import io
 import glob
 import h5py
 import json
+
 from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from rerun_loader_urdf import URDFLogger
 import argparse
 
-from skimage import io
+from skimage.draw import disk
+from scipy import ndimage
+import cv2 as cv
 
-def ext_matrix(t, rot):
+def ext_to_camera(t, rot):
     # matrix to transform world PoV into camera PoV, C^-1
     ext = np.eye(4)
     ext[0:3, 0:3] = rot.T
     ext[0:3, 3] = -rot.T @ t
     return ext
 
-def ext_inv(t, rot):
+def ext_to_world(t, rot):
     # inverse matrix, C
     ext = np.eye(4)
     ext[0:3, 0:3] = rot
@@ -28,29 +32,65 @@ def ext_inv(t, rot):
     return ext
 
 def draw_sequence(image: np.array, points: list):
-    # point: (x, y, color)
-    from skimage.draw import disk
-
+    """
+    :param points: [(x, y, color)]
+        color presets: 0 - begin green, end red;
+        > 0 - fixed colors.
+    """
     colors = {}
-    colors[1] = np.array([255, 0, 0])
-    colors[2] = np.array([0, 255, 0])
-    colors[3] = np.array([0, 0, 255])
+    colors[0] = np.array([255, 0, 0])
+    colors[1] = np.array([0, 255, 0])
+    colors[2] = np.array([0, 0, 255])
 
     canvas = np.copy(image)
     for i, (x, y, color) in enumerate(points):
         rows, cols = disk((y, x), 8, shape=canvas.shape)
         k = i / len(points)
 
-        if color == 1:
-            # hardcoded mix
+        if color == 0:
+            # mix
             canvas[rows, cols] = colors[2] * (1-k) + colors[1] * k
         else:
-            # preset color
+            # fixed color
             canvas[rows, cols] = colors[color]
-        
-        
 
     return canvas
+
+class ImageSaver:
+    cache: list = [] # [(time, image)]
+    max_size: int = 20
+    t_diff: float = 2000
+    t_step: float = 500
+    center_images: list = [] # [(time, image)]
+    center_time: float = 0
+    snapshots: dict = {}
+
+    def __init__(self):
+        pass
+
+    def append(self, time: int, image: np.array):
+
+        if len(self.cache) > 0 and abs(time - self.cache[-1][0]) < self.t_step:
+            return
+        print("app", time, len(self.cache))
+
+        self.cache.append((time, image))
+        if len(self.cache) > self.max_size:
+            self.cache.pop(0)
+
+        if abs(time - self.center_time) < self.t_diff:
+            self.center_images.append((time, image))
+
+    def save_center(self, center_time: int):
+        self.center_time = center_time
+        for time, image in self.cache:
+            if abs(time - self.center_time) < self.t_diff:
+                self.center_images.append((time, image))
+
+    def snap(self, desc: str, image: np.array):
+        if not desc in self.snapshots:
+            self.snapshots[desc] = image
+
 
 class StereoCamera:
     left_images: list[np.ndarray]
@@ -179,7 +219,6 @@ class RawScene:
         with open(json_file_paths[0], "r") as metadata_file:
             self.metadata = json.load(metadata_file)
 
-        # MV
         self.trajectory = h5py.File(str(self.dir_path / "trajectory.h5"), "r")
         self.action = self.trajectory['action']
 
@@ -207,44 +246,30 @@ class RawScene:
         time_stamp_list = self.trajectory["observation"]["timestamp"][
             "cameras"
         ][f"{self.serial[camera_name]}_estimated_capture"]
-
         frame_count = len(time_stamp_list)
-        t_total = float(time_stamp_list[-1] - time_stamp_list[0]) # microsec
-        t_total /= 1000
+        t_total = float(time_stamp_list[-1] - time_stamp_list[0]) / 1000 # microsec -> sec
         print("episode sec", int(t_total))
-        print("fps {:.2f}".format(frame_count / t_total))
-        
+        print("fps {:.2f}".format(frame_count / t_total)) # usually 14
+
         # MV
         # draw trajectory on 2D image
-        self.image: np.array = None # first image with gripper
-        self.points = [] # [(y, x, color)]
-        self.first_touch = -1 # step number
-        self.finger_tip: np.array = np.eye(4) # [4, 4] link_to_world
+        self.points = []  # [(y, x, color)]
+        self.first_touch = -1  # step number
+        self.finger_tip: np.array = np.eye(4)  # [4, 4] link_to_world
 
         # gripper statistics
+        self.FPS = int(14.15)
         self.is_gripper_closed = False
-        self.FPS = 14
         self.gripper_close_count = 0
         self.gripper_duration = 0
-
-        self.visible_points = 0 # is projected 2D point visible
+        self.visible_count = 0  # is projected 2D point visible
 
         # compute difference image
         self.first_touch_3d: np.array = None
         self.first_touch_2d: np.array = None
-        self.max_distance: float = 0
-        self.max_distance_i: int = -1
-        self.episode_begin_img: np.array = None
-        self.max_distance_img: np.array = None
 
-        # save a few images close to grip moment
-        # [ -8, -6, -4, -2, t_grip ]
-        # intuition: 1) after grip, the object area doesn't change often
-        # 2) after grip, robot region changes before max frame, and object doesn't
-        self.max_touch_2d: np.array = None # [x, y, 1]
-        self.last_images: list = [] # (i, frame_i)
-        self.final_last_images: list = None # pointer to images that will be saved
-
+        self.imsaver: ImageSaver = ImageSaver()
+        self.sift = cv.SIFT_create()
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -258,185 +283,173 @@ class RawScene:
         """
 
         for camera_name, camera in self.cameras.items():
+            # MV
+            if camera_name != "ext1":
+               continue
+
+            # MV compute gripper state
+            ln = len(self.action['gripper_position'])
+            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(ln, i+int(self.FPS*0.2))]
+            gripper_on = np.sum(signal > 0.5)
+            if gripper_on == len(signal):
+                # gripper always on
+                if self.is_gripper_closed == False:
+                    self.gripper_close_count += 1
+
+                if self.first_touch == -1:
+                    self.first_touch = i
+
+                self.is_gripper_closed = True
+            elif gripper_on == 0:
+                # gripper always off
+                self.is_gripper_closed = False
+
+
+            if self.is_gripper_closed:
+                self.gripper_duration += 1
+            # END
+
+            time_stamp_camera = self.trajectory["observation"]["timestamp"][
+                "cameras"
+            ][f"{self.serial[camera_name]}_estimated_capture"][i]
+            rr.set_time_nanos("real_time", time_stamp_camera * int(1e6))
+
+            # left view
+            extrinsics_left = self.trajectory["observation"]["camera_extrinsics"][
+                f"{self.serial[camera_name]}_left"
+            ][i]
+            rotation = Rotation.from_euler(
+                "xyz", np.array(extrinsics_left[3:])
+            ).as_matrix()
+
+            rr.log(
+                f"cameras/{camera_name}/left",
+                rr.Pinhole(
+                    image_from_camera=camera.left_intrinsic_mat,
+                ),
+            ),
+            rr.log(
+                f"cameras/{camera_name}/left",
+                rr.Transform3D(
+                    translation=np.array(extrinsics_left[:3]),
+                    mat3x3=rotation,
+                ),
+            ),
+
+            # MV compute projection matrix
+            intr = camera.left_intrinsic_mat  # [3, 3]
+            t = np.array(extrinsics_left[:3]) # [3]
+            rot = rotation                    # [3, 3]
+
+            pinhole = np.eye(4)[:3, :4]
+            ext = ext_to_camera(t, rot)
+            self.left_proj_mat = intr @ pinhole @ ext
+
+            # === right view
+            extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
+                f"{self.serial[camera_name]}_right"
+            ][i]
+            rotation = Rotation.from_euler(
+                "xyz", np.array(extrinsics_right[3:])
+            ).as_matrix()
+
+            rr.log(
+                f"cameras/{camera_name}/right",
+                rr.Pinhole(
+                    image_from_camera=camera.right_intrinsic_mat,
+                ),
+            ),
+            rr.log(
+                f"cameras/{camera_name}/right",
+                rr.Transform3D(
+                    translation=np.array(extrinsics_right[:3]),
+                    mat3x3=rotation,
+                ),
+            ),
+
+            # === depth view
+            depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
+            rotation = Rotation.from_euler(
+                "xyz", np.array(extrinsics_right[3:])
+            ).as_matrix()
+
+            rr.log(
+                f"cameras/{camera_name}/depth",
+                rr.Pinhole(
+                    image_from_camera=camera.left_intrinsic_mat,
+                ),
+            ),
+            rr.log(
+                f"cameras/{camera_name}/depth",
+                rr.Transform3D(
+                    translation=depth_translation,
+                    mat3x3=rotation,
+                ),
+            ),
+
+            frames = camera.get_next_frame()
+            if frames:
+                left_image, right_image, depth_image = frames
+
                 # MV
-                if camera_name != "ext1":
-                   continue
+                left_image = left_image[:, :, ::-1]
+                imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-                # === threshold gripper state
-                counts = [0, 0] # gripper OFF, gripper ON
-                gripper_len = len(self.action['gripper_position'])
-                for j in range(max(0, i - self.FPS), min(gripper_len, i + self.FPS)):
-                    if self.action['gripper_position'][i] > 0.5:
-                        counts[1] += 1
-                    else:
-                        counts[0] += 1
+                # save frame to queue
+                self.imsaver.append(time_stamp_camera, left_image)  # time in ms
+                self.imsaver.snap("first", left_image) # save first episode image
 
-                if counts[0] == 0:
-                    # gripper always on
-                    if self.is_gripper_closed == False:
-                        self.gripper_close_count += 1
-                    if self.first_touch == -1:
-                        self.first_touch = i
+                # first projection
+                point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
+                point_3d = point_3d / point_3d[3]
 
-                    self.is_gripper_closed = True
-                elif counts[1] == 0:
-                    # gripper always off
-                    self.is_gripper_closed = False
+                point_2d = self.left_proj_mat @ point_3d
+                point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
+                x, y = point_2d[0], point_2d[1]
+                self.points.append((x, y, 0))
 
-                if self.is_gripper_closed:
-                    self.gripper_duration += 1
-                # END
+                if self.first_touch == i:
+                    # frame of first touch
+                    self.imsaver.snap("grip", left_image)
+                    self.imsaver.save_center(time_stamp_camera)
 
-                time_stamp_camera = self.trajectory["observation"]["timestamp"][
-                    "cameras"
-                ][f"{self.serial[camera_name]}_estimated_capture"][i]
-                rr.set_time_nanos("real_time", time_stamp_camera * int(1e6))
+                    # self.first_touch_3d = point_3d
+                    self.first_touch_2d = point_2d
 
-                # left view
-                extrinsics_left = self.trajectory["observation"]["camera_extrinsics"][
-                    f"{self.serial[camera_name]}_left"
-                ][i]
-                rotation = Rotation.from_euler(
-                    "xyz", np.array(extrinsics_left[3:])
-                ).as_matrix()
+                # === after first touch
+                # cur_distance = np.sum((point_3d - self.first_touch_3d) ** 2)
+                # if cur_distance > self.max_distance:
+                #     self.max_distance = cur_distance
+                #     self.max_distance_img = left_image
+                #     self.max_touch_2d = point_2d
+                #     self.final_last_images = self.last_images.copy()
 
-                rr.log(
-                    f"cameras/{camera_name}/left",
-                    rr.Pinhole(
-                        image_from_camera=camera.left_intrinsic_mat,
-                    ),
-                ),
-                rr.log(
-                    f"cameras/{camera_name}/left",
-                    rr.Transform3D(
-                        translation=np.array(extrinsics_left[:3]),
-                        mat3x3=rotation,
-                    ),
-                ),
+                # === draw projection 1
+                left_image = draw_sequence(left_image, [(x, y, 2)])
 
-                # MV
-                intr = camera.left_intrinsic_mat  # [3, 3]
-                t = np.array(extrinsics_left[:3]) # [3]
-                rot = rotation                    # [3, 3]
+                gray = cv.cvtColor(left_image, cv.COLOR_RGB2GRAY)
+                kp = self.sift.detect(gray, None)
+                left_image = cv.drawKeypoints(gray, kp, left_image)
 
-                pinhole = np.eye(4)[:3, :4]
-                ext = ext_matrix(t, rot)
-                self.left_proj_mat = intr @ pinhole @ ext
-                # END
-                
-                # === right view
-                extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
-                    f"{self.serial[camera_name]}_right"
-                ][i]
-                rotation = Rotation.from_euler(
-                    "xyz", np.array(extrinsics_right[3:])
-                ).as_matrix()
+                h, w, c = left_image.shape
+                if 0 <= y < h and 0 <= x < w:
+                    self.visible_count += 1
 
-                rr.log(
-                    f"cameras/{camera_name}/right",
-                    rr.Pinhole(
-                        image_from_camera=camera.right_intrinsic_mat,
-                    ),
-                ),
-                rr.log(
-                    f"cameras/{camera_name}/right",
-                    rr.Transform3D(
-                        translation=np.array(extrinsics_right[:3]),
-                        mat3x3=rotation,
-                    ),
-                ),
+                # second projection
+                cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
+                cam = cam / cam[2]
+                x, y = cam[0], cam[1]
+                left_image = draw_sequence(left_image, [(x, y, 1)])
 
-                # === depth view
-                depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
-                rotation = Rotation.from_euler(
-                    "xyz", np.array(extrinsics_right[3:])
-                ).as_matrix()
+                # Ignore points that are far away.
 
-                rr.log(
-                    f"cameras/{camera_name}/depth",
-                    rr.Pinhole(
-                        image_from_camera=camera.left_intrinsic_mat,
-                    ),
-                ),
-                rr.log(
-                    f"cameras/{camera_name}/depth",
-                    rr.Transform3D(
-                        translation=depth_translation,
-                        mat3x3=rotation,
-                    ),
-                ),
+                if self.visualize:
+                    rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
+                    # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
 
-                frames = camera.get_next_frame()
-                if frames:
-                    left_image, right_image, depth_image = frames
-                    
-                    # MV
-                    left_image = left_image[:, :, ::-1]
-
-                    if self.episode_begin_img is None:
-                        self.episode_begin_img = left_image
-
-                    # add to last image queue (i, frame)
-                    if len(self.last_images) == 0 or i - self.last_images[-1][0] > 14 * 1:
-                        # more than 1 sec passed
-                        if len(self.last_images) > 5:
-                            self.last_images.pop(0)
-                        self.last_images.append((i, left_image))
-
-                    # first projection
-                    point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
-                    point_3d = point_3d / point_3d[3]
-                    point_2d = self.left_proj_mat @ point_3d
-                    point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
-                    x, y = point_2d[0], point_2d[1]
-                    
-                    imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
-
-                    if self.image is None:
-                        self.image = left_image.copy()
-
-                    if self.first_touch == i:
-                        # frame of first touch
-                        self.image = left_image.copy()
-                        self.points.append((x, y, 1))
-
-                        self.first_touch_3d = point_3d
-                        self.first_touch_2d = point_2d
-                    elif self.first_touch != -1:
-                        # after first touch
-                        self.points.append((x, y, 1))
-
-                        # take max distance from gripper closure
-                        cur_distance = np.sum((point_3d - self.first_touch_3d) ** 2)
-                        if cur_distance > self.max_distance:
-                            self.max_distance = cur_distance
-                            self.max_distance_i = i
-                            self.max_distance_img = left_image
-                            self.max_touch_2d = point_2d
-                            self.final_last_images = self.last_images.copy()
-
-
-                    left_image = draw_sequence(left_image, [(x, y, 3)])
-
-                    h, w, c = left_image.shape
-                    if 0 <= y < h and 0 <= x < w:
-                        self.visible_points += 1
-
-                    # second projection
-                    cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
-                    cam = cam / cam[2]
-                    x, y = cam[0], cam[1]
-                    left_image = draw_sequence(left_image, [(x, y, 2)])
-
-                    # Ignore points that are far away.
-
-                    if self.visualize:
-                        rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
-                        # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
-
-                        if depth_image is not None:
-                            depth_image[depth_image > 1.8] = 0
-                            rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
+                    if depth_image is not None:
+                        depth_image[depth_image > 1.8] = 0
+                        rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
 
     def log_action(self, i: int) -> None:
         # MV
@@ -447,7 +460,7 @@ class RawScene:
 
         # Link to world coordinate
         trans, mat = extract_extrinsics(pose) # [3], [3, 3]
-        self.world_pos_3d = ext_inv(trans, mat) # [4, 4]
+        self.world_pos_3d = ext_to_world(trans, mat) # [4, 4]
         # END MV
         
         pose = self.trajectory['action']['cartesian_position'][i]
@@ -538,17 +551,14 @@ class RawScene:
 
     # MV
     def draw_image(self, path):
-        image = draw_sequence(self.image, self.points)
-        io.imsave(path, image, quality=90)
+        plot = draw_sequence(self.imsaver.snapshots["grip"], self.points)
+        io.imsave(path, plot, quality=90)
 
-        # last images
-        for i, image in self.last_images:
-            io.imsave(f"data/last_{i:0>4}.jpg", image, quality=90)
-
-        # difference image
-        print("first touch 2d", self.first_touch_2d)
-        io.imsave("data/first_image.jpg", self.episode_begin_img, quality=90)
-        io.imsave("data/max_image.jpg", self.max_distance_img, quality=90)
+        # grip image
+        Path("data/frames").mkdir(parents=True, exist_ok=True)
+        io.imsave("data/frames/grip_image.jpg", self.imsaver.snapshots["grip"], quality=90)
+        for time, image in self.imsaver.center_images:
+            io.imsave(f"data/frames/center_{time:0>16}.jpg", image, quality=90)
 
 
 def blueprint_raw():
@@ -654,8 +664,6 @@ def main():
 
     urdf_logger = URDFLogger("franka_description/panda.urdf")
 
-    from raw import RawScene, blueprint_raw
-
     raw_scene: RawScene = RawScene(args.scene, args.visualize)
     rr.send_blueprint(blueprint_raw())
     raw_scene.log(urdf_logger)
@@ -667,7 +675,7 @@ def main():
     raw_scene.draw_image("data/plot.jpg")
 
     logdata = {
-        "visible_points": raw_scene.visible_points,
+        "visible_points": raw_scene.visible_count,
         "gripper_closed_times": raw_scene.gripper_close_count,
         "gripper_duration": raw_scene.gripper_duration,
         "episode_duration": raw_scene.trajectory_length,
