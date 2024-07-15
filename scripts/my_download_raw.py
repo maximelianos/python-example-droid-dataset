@@ -33,12 +33,6 @@ def main():
         "Downloads a succesfull scene from the raw version of the dataset"
     )
     parser.add_argument("--out", default=None, type=Path, help="where to store data, by default it gets puts in data/")
-    parser.add_argument(
-        "--date", type=str, help="date of recording, format: %Y_%b_%d_%H:%M:%S"
-    )
-
-
-
     args = parser.parse_args()
 
     if args.out is None:
@@ -80,16 +74,35 @@ def main():
     annotations = intersection
     print("episodes after cleaning:", len(annotations.keys()))
 
+    # === filter based on annotation
     selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"language_instruction1": ...}}
     for date in annotations:
-        for lang_i in annotations[date]:
-            description = annotations[date][lang_i]
-            if "put" in description and "marker" in description:
-                selected_episodes[date] = annotations[date]
-                break
+        is_short = True
+        to_save = False
+        
+        for annot_key in annotations[date]:
+            annot = annotations[date][annot_key]
+            if len(annot) > 60:
+                is_short = False
+            
+            is_match = (
+                "marker" in annot
+            )
+            if is_match:
+                save_key = annot_key
+                to_save = True
+        if is_short and to_save:
+            selected_episodes[date] = annotations[date][save_key]
 
     print("selected:", len(selected_episodes))
-    selected_list = list(selected_episodes.keys())[::10][:100] # each 10-th episode, at most 100
+
+    selected_list = list(selected_episodes.keys())
+    selected_list = selected_list[::len(selected_list) // 200][:200] # select 200 episodes uniformly
+
+    selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
+    with open("data/selected_annotations.json", "w") as f:
+        json.dump(selected_annotations, f, indent=4, ensure_ascii=False)
+
     print("to download:", len(selected_list))
     input("continue...")
 

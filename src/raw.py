@@ -15,7 +15,6 @@ import argparse
 
 from skimage.draw import disk
 from scipy import ndimage
-import cv2 as cv
 
 def ext_to_camera(t, rot):
     # matrix to transform world PoV into camera PoV, C^-1
@@ -49,7 +48,7 @@ def draw_sequence(image: np.array, points: list):
 
         if color == 0:
             # mix
-            canvas[rows, cols] = colors[2] * (1-k) + colors[1] * k
+            canvas[rows, cols] = colors[1] * (1-k) + colors[0] * k
         else:
             # fixed color
             canvas[rows, cols] = colors[color]
@@ -59,7 +58,7 @@ def draw_sequence(image: np.array, points: list):
 class ImageSaver:
     cache: list = [] # [(time, image)]
     max_size: int = 20
-    t_diff: float = 2000
+    t_diff: float = 4000
     t_step: float = 500
     center_images: list = [] # [(time, image)]
     center_time: float = 0
@@ -87,8 +86,8 @@ class ImageSaver:
             if abs(time - self.center_time) < self.t_diff:
                 self.center_images.append((time, image))
 
-    def snap(self, desc: str, image: np.array):
-        if not desc in self.snapshots:
+    def snap(self, desc: str, image: np.array, replace=False):
+        if not desc in self.snapshots or replace:
             self.snapshots[desc] = image
 
 
@@ -267,9 +266,9 @@ class RawScene:
         # compute difference image
         self.first_touch_3d: np.array = None
         self.first_touch_2d: np.array = None
+        self.max_distance_grip: float = 0
 
         self.imsaver: ImageSaver = ImageSaver()
-        self.sift = cv.SIFT_create()
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -288,8 +287,8 @@ class RawScene:
                continue
 
             # MV compute gripper state
-            ln = len(self.action['gripper_position'])
-            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(ln, i+int(self.FPS*0.2))]
+            l = len(self.action['gripper_position'])
+            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(l, i+int(self.FPS*0.2))]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper always on
@@ -406,7 +405,7 @@ class RawScene:
                 point_2d = self.left_proj_mat @ point_3d
                 point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
                 x, y = point_2d[0], point_2d[1]
-                self.points.append((x, y, 0))
+                
 
                 if self.first_touch == i:
                     # frame of first touch
@@ -417,19 +416,17 @@ class RawScene:
                     self.first_touch_2d = point_2d
 
                 # === after first touch
-                # cur_distance = np.sum((point_3d - self.first_touch_3d) ** 2)
-                # if cur_distance > self.max_distance:
-                #     self.max_distance = cur_distance
-                #     self.max_distance_img = left_image
-                #     self.max_touch_2d = point_2d
-                #     self.final_last_images = self.last_images.copy()
+                if self.first_touch != -1:
+                    self.points.append((x, y, 0))
+
+                    if self.is_gripper_closed and self.gripper_close_count == 1:
+                        cur_distance = np.sum((point_2d - self.first_touch_2d) ** 2)
+                        if cur_distance > self.max_distance_grip:
+                            self.max_distance_grip = cur_distance
+                            self.imsaver.snap("max", left_image, replace=True)
 
                 # === draw projection 1
                 left_image = draw_sequence(left_image, [(x, y, 2)])
-
-                gray = cv.cvtColor(left_image, cv.COLOR_RGB2GRAY)
-                kp = self.sift.detect(gray, None)
-                left_image = cv.drawKeypoints(gray, kp, left_image)
 
                 h, w, c = left_image.shape
                 if 0 <= y < h and 0 <= x < w:
@@ -557,6 +554,7 @@ class RawScene:
         # grip image
         Path("data/frames").mkdir(parents=True, exist_ok=True)
         io.imsave("data/frames/grip_image.jpg", self.imsaver.snapshots["grip"], quality=90)
+        io.imsave("data/frames/max_image.jpg", self.imsaver.snapshots["max"], quality=90)
         for time, image in self.imsaver.center_images:
             io.imsave(f"data/frames/center_{time:0>16}.jpg", image, quality=90)
 
@@ -640,7 +638,23 @@ def blueprint_raw():
         TimePanel(expanded=False),
         auto_space_views=False,
     )
-    return blueprint
+
+    # MV
+    mv_blueprint = Blueprint(
+        Vertical(
+            blueprint_row_images(
+                [
+                    "cameras/ext1/left",
+                ]
+            ),
+            row_shares=[3, 1],
+        ),
+        BlueprintPanel(expanded=False),
+        SelectionPanel(expanded=False),
+        TimePanel(expanded=False),
+        auto_space_views=False,
+    )
+    return mv_blueprint
 
 def main():
     # MV
@@ -655,8 +669,7 @@ def main():
     args = parser.parse_args()
 
     # remove leftover files
-    last_images = Path("data").glob("last*jpg")
-    for file in last_images:
+    for file in Path("data/frames").glob("center*jpg"):
         file.unlink()
 
     # args.visualize: bool

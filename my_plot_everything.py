@@ -3,6 +3,9 @@ import json
 import re
 import datetime as dt
 import subprocess
+import shutil
+
+from my_difference import Difference
 
 
 root_dir = Path(__file__).parent
@@ -20,16 +23,17 @@ for date in sorted(data.iterdir()):
     for episode in sorted(date.iterdir()):
         episodes.append(episode)
         print(f"{len(episodes): >4}", episode)
+# episodes = episodes[45:]
 
-exclude = [
-    #"data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_14_58_51_2023"
-]
-for ex_ep in exclude:
-    for i in range(len(episodes)):
-        if ex_ep in str(episodes[i]):
-            episodes.pop(i)
-            print("removed", ex_ep)
-            break
+# exclude = [
+#     "data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_14_58_51_2023"
+# ]
+# for ex_ep in exclude:
+#     for i in range(len(episodes)):
+#         if ex_ep in str(episodes[i]):
+#             episodes.pop(i)
+#             print("removed", ex_ep)
+#             break
             
 
 print("episodes:", len(episodes))
@@ -53,7 +57,9 @@ if Path("data/complete_log.json").exists():
     with open("data/complete_log.json", "r") as f:
         complete_log = json.load(f)
 
-print("episodes", len(episodes))
+# MV
+diff_processor = Difference()
+
 for episode in episodes:
     print("episode:", episode)
 
@@ -74,9 +80,15 @@ for episode in episodes:
     plot_path = Path("plot") / (uuid + ".jpg")
     print("plot path:", plot_path)
 
-    command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path] # INTER
+    command = ["src/raw.py", "--scene", str(episode), "--plot", plot_path] # INTER
     print(f'Running: "{" ".join(map(str, command))}"')
     p: subprocess.CompletedProcess = subprocess.run(command)
+
+    # difference
+    diff_processor.process()
+    Path("plotdiff").mkdir(parents=True, exist_ok=True)
+    plot_path = Path("plotdiff") / (uuid + ".jpg")
+    shutil.copy2("data/frames/result_overlay.jpg", plot_path)
 
     # read json of completed episode
     with open("data/single_log.json", "r") as f:

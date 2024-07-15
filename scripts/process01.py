@@ -1,5 +1,5 @@
 # download only text .json files (300 mb)
-# $ gsutil -m rsync -r -x "(.*mp4)|(.*svo)|(.*h5)|(failure)|(timestamp)" gs://gresearch/robotics/droid_raw/1.0.1/  droid_raw
+# $ gsutil -m rsync -r -x "(.*npy)|(.*mp4)|(.*svo)|(.*h5)|(failure)|(timestamp)" gs://gresearch/robotics/droid_raw/1.0.1/  droid_raw
 # $ python scripts/process01.py --data ../droid_raw/
 
 from pathlib import Path
@@ -45,5 +45,6 @@ for org in droid_root.iterdir():
 
             result[metadata["uuid"]] = str(time.relative_to(droid_root))
 
+Path("data").mkdir(parents=True, exist_ok=True)
 with open("data/existing_episodes.json", "w") as f:
     json.dump(result, f, indent=4, ensure_ascii=False)
