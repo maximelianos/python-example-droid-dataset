@@ -15,7 +15,7 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 
 class Difference:
     def __init__(self):
-        self.code_dir = Path.home() / "work/brox/python-example-droid-dataset"
+        self.code_dir = Path(__file__).parent
 
         backbone = resnet18(pretrained=True)
 

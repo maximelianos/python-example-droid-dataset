@@ -57,33 +57,32 @@ def draw_sequence(image: np.array, points: list):
 
 class ImageSaver:
     cache: list = [] # [(time, image)]
-    max_size: int = 20
-    t_diff: float = 4000
-    t_step: float = 500
+    t_max_diff: int = 1000  # millis
+    t_step: int = 100
     center_images: list = [] # [(time, image)]
-    center_time: float = 0
+    center_time: int = 0
     snapshots: dict = {}
 
     def __init__(self):
         pass
 
     def append(self, time: int, image: np.array):
-
         if len(self.cache) > 0 and abs(time - self.cache[-1][0]) < self.t_step:
             return
-        print("app", time, len(self.cache))
 
         self.cache.append((time, image))
-        if len(self.cache) > self.max_size:
+        if time - self.cache[0][0] > self.t_max_diff:
             self.cache.pop(0)
 
-        if abs(time - self.center_time) < self.t_diff:
+        # save images after the Moment
+        if abs(time - self.center_time) < self.t_max_diff:
             self.center_images.append((time, image))
 
     def save_center(self, center_time: int):
         self.center_time = center_time
         for time, image in self.cache:
-            if abs(time - self.center_time) < self.t_diff:
+            # save images before the Moment
+            if abs(time - self.center_time) < self.t_max_diff:
                 self.center_images.append((time, image))
 
     def snap(self, desc: str, image: np.array, replace=False):
