@@ -5,8 +5,8 @@ import datetime as dt
 import subprocess
 import shutil
 
-from difference import Difference
-
+from src.difference import Difference
+from src.flow import FlowProcessor
 
 def main():
     root_dir = Path(__file__).parent
@@ -24,7 +24,7 @@ def main():
         for episode in sorted(date.iterdir()):
             episodes.append(episode)
             print(f"{len(episodes): >4}", episode)
-    episodes = episodes[3:]
+    episodes = episodes[:50]
 
     exclude = [
         "2023-04-27/Thu_Apr_27_22:35:22_2023", # failed download?
@@ -63,6 +63,7 @@ def main():
 
     # MV
     # diff_processor = Difference()
+    flow_processor = FlowProcessor()
 
     for episode in episodes:
         print("episode:", episode)
@@ -84,15 +85,21 @@ def main():
         plot_path = Path("plot") / (uuid + ".jpg")
         print("plot path:", plot_path)
 
-        command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path] # INTER
+        command = ["src/raw.py", "--scene", str(episode), "--plot", plot_path] # INTER
         print(f'Running: "{" ".join(map(str, command))}"')
         p: subprocess.CompletedProcess = subprocess.run(command)
 
-        # difference
+        # === difference
         # diff_processor.process()
         # Path("plotdiff").mkdir(parents=True, exist_ok=True)
         # plot_path = Path("plotdiff") / (uuid + ".jpg")
         # shutil.copy2("data/frames/result_overlay.jpg", plot_path)
+
+        # === flow
+        flow_processor.process()
+        plot_path = Path("plot/flow") / (uuid + ".jpg")
+        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2("data/overlay.jpg", plot_path)
 
         # read json of completed episode
         with open("data/single_log.json", "r") as f:
@@ -113,7 +120,7 @@ def main():
         with open("data/complete_log.json", "w") as f:
             json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-        input("continue") # INTER
+        # input("continue") # INTER
 
 if __name__ == "__main__":
     main()
