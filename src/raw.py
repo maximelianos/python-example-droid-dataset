@@ -13,7 +13,7 @@ from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, e
 from rerun_loader_urdf import URDFLogger
 import argparse
 
-from skimage.draw import disk
+import skimage
 from scipy import ndimage
 
 def ext_to_camera(t, rot):
@@ -43,7 +43,7 @@ def draw_sequence(image: np.array, points: list):
 
     canvas = np.copy(image)
     for i, (x, y, color) in enumerate(points):
-        rows, cols = disk((y, x), 8, shape=canvas.shape)
+        rows, cols = skimage.draw.disk((y, x), 8, shape=canvas.shape)
         k = i / len(points)
 
         if color == 0:

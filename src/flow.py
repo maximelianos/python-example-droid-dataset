@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import numpy as np
+import skimage
 from skimage import io
 from skimage.transform import rescale, resize
 from scipy.ndimage import gaussian_filter
@@ -16,6 +17,33 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 
 from torchvision.models.optical_flow import raft_large
 
+
+
+def draw_sequence(image: np.array, points: list):
+    """
+    :param points: [(x, y, color)]
+        color presets: 0 - begin green, end red;
+        > 0 - fixed colors.
+    """
+    colors = {}
+    colors[0] = np.array([255, 0, 0])
+    colors[1] = np.array([0, 255, 0])
+    colors[2] = np.array([0, 0, 255])
+
+    canvas = np.copy(image)
+    for i, (x, y, color) in enumerate(points):
+        print(x, y)
+        rows, cols = skimage.draw.disk((y, x), 8, shape=canvas.shape)
+        k = i / len(points)
+
+        if color == 0:
+            # mix
+            canvas[rows, cols] = colors[1] * (1-k) + colors[0] * k
+        else:
+            # fixed color
+            canvas[rows, cols] = colors[color]
+
+    return canvas
 
 
 class FlowProcessor:
@@ -137,4 +165,37 @@ class FlowProcessor:
 
         overlay = overlay_mask(i2, mask)
         io.imsave(self.data_dir / "overlay.jpg", (overlay * 255).astype(np.uint8))
-    
+
+        # === applying quantile to the image
+
+        _b, _c, h, w = flow.shape
+        rows = torch.arange(0, h)
+        cols = torch.arange(0, w)
+        grid_y, grid_x = torch.meshgrid(rows, cols, indexing='ij')
+        grid_y = grid_y / h
+        grid_x = grid_x / w
+
+        selection = grid_y[ (grid_x > 0.25) & (grid_x < 0.75) & (mag > 10)] # CAN BE EMPTY
+        want_area = 60 * 60
+        selection_area = len(selection)
+        if selection_area < want_area * 2:
+            # cancel process
+            return
+            
+        q = torch.tensor([(selection_area - want_area * 0.5) / selection_area])
+        y_bound = torch.quantile(selection, q)
+
+        # y-coordinate
+        y_pix = int(((y_bound + 0.05) * h).flatten())
+
+        # x-coordinate
+        selection = grid_x[(grid_x > 0.25) & (grid_x < 0.75) & (mag > 10) & (grid_y > y_bound)] # CAN BE EMPTY
+        if len(selection) < want_area * 0.25:
+            # cancel process
+            return
+
+        x_bound = torch.mean(selection)
+        x_pix = int((x_bound * w).flatten())
+
+        canvas = draw_sequence(overlay * 255, [(x_pix, y_pix, 0)])
+        io.imsave(self.data_dir / "overlay.jpg", canvas.astype(np.uint8))

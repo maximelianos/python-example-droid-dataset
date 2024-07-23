@@ -77,13 +77,15 @@ def main():
     # === filter based on annotation
     selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"language_instruction1": ...}}
     for date in annotations:
-        is_short = True
+        is_good = True
         to_save = False
         
         for annot_key in annotations[date]:
-            annot = annotations[date][annot_key]
-            if len(annot) > 60:
-                is_short = False
+            annot = annotations[date][annot_key].lower() # very important!
+            regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
+            regex2 = r"move.*(forward|backwards|left|right)"
+            if len(annot) > 60 or re.findall(regex1, annot) or re.findall(regex2, annot):
+                is_good = False
             
             is_match = (
                 "marker" in annot
@@ -91,13 +93,12 @@ def main():
             if is_match:
                 save_key = annot_key
                 to_save = True
-        if is_short and to_save:
+        if is_good and to_save:
             selected_episodes[date] = annotations[date][save_key]
-
     print("selected:", len(selected_episodes))
 
-    selected_list = list(selected_episodes.keys())
-    selected_list = selected_list[::len(selected_list) // 200][:200] # select 200 episodes uniformly
+    selected_list = sorted(list(selected_episodes.keys()))
+    selected_list = selected_list[::len(selected_list) // 20][:20] # select 200 episodes uniformly
 
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:
