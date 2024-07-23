@@ -1,0 +1,19 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>JSON</h2>
+
+<pre>
+import json
+with open("read_index.json", "r") as f:
+    index = json.load(f)
+
+with open("write_index.json", "w") as f:
+    json.dump(index, f, indent=4, ensure_ascii=False)
+</pre>
+
+</body>
+</html>

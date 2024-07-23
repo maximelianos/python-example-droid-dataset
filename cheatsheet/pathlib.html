@@ -1,0 +1,36 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>pathlib</h2>
+
+<pre>
+from pathlib import Path
+
+code_dir = Path(__file__).parent
+target_file = code_dir / "data" / "index.json"
+</pre>
+
+<p>Iterate over all files in directory</p>
+<pre>
+data_dir = Path("data")
+for path in sorted(data_dir.iterdir()):
+    # path == Path(data/index.json)
+</pre>
+
+<p>Select files matching a pattern</p>
+<pre>
+file_list = sorted(Path("data").glob("*json"))
+</pre>
+
+<p>Create folder for a file if not exists</p>
+<pre>
+plot_path = Path("plot") / "first_image.jpg"
+plot_path.parent.mkdir(parents=True, exist_ok=True)
+</pre>
+
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>Image input/output</h2>
+
+<p>OpenCV fast read and write</p>
+<pre>
+from pathlib import Path
+import cv2
+
+# image: numpy array [h, w, RGB] float32 [0, 1]
+image = cv2.imread(path)[:,:,::-1].astype(np.float32) / 255
+
+# image: numpy array [h, w, RGB] [0, 255]
+plot_path = Path("data") / "plot.jpg"
+cv2.imwrite(plot_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
+</pre>
+
+</body>
+</html>
