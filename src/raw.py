@@ -552,6 +552,7 @@ class RawScene:
 
         # grip image
         Path("data/frames").mkdir(parents=True, exist_ok=True)
+        io.imsave("data/frames/first_image.jpg", self.imsaver.snapshots["first"], quality=90)
         io.imsave("data/frames/grip_image.jpg", self.imsaver.snapshots["grip"], quality=90)
         io.imsave("data/frames/max_image.jpg", self.imsaver.snapshots["max"], quality=90)
         for time, image in self.imsaver.center_images:

@@ -50,7 +50,7 @@ class FlowProcessor:
     def __init__(self):
         self.data_dir = Path(__file__).parent.parent / "data"
 
-        self.device = "cpu"
+        self.device = "cuda"
         self.model = raft_large(pretrained=True, progress=False).to(self.device).eval()
     
     def process(self):
@@ -133,7 +133,7 @@ class FlowProcessor:
             with torch.no_grad():
                 list_of_flows = self.model(img1_batch.to(self.device), img2_batch.to(self.device))
             print(f"length = {len(list_of_flows)} = number of iterations of the model")
-            predicted_flows = list_of_flows[-1].detach()
+            predicted_flows = list_of_flows[-1].detach().cpu()
 
             return predicted_flows
         
