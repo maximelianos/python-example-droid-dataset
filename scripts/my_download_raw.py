@@ -98,7 +98,7 @@ def main():
     print("selected:", len(selected_episodes))
 
     selected_list = sorted(list(selected_episodes.keys()))
-    selected_list = selected_list[::len(selected_list) // 20][:20] # select 200 episodes uniformly
+    selected_list = selected_list[::len(selected_list) // 100][:100] # select 200 episodes uniformly
 
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:

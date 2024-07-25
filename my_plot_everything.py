@@ -104,7 +104,7 @@ def main():
         # organisation
         org = uuid.split("+")[0]
 
-        plot_path = Path("plot") / (uuid + ".jpg")
+        plot_path = Path("plot") / (date_str + ".jpg")
         print("plot path:", plot_path)
 
         command = ["src/raw.py", "--scene", str(episode), "--plot", plot_path] # INTER
