@@ -1,0 +1,72 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>Vim</h2>
+
+<p>1. Basic config</p>
+<pre>
+~/.vimrc
+syntax on
+set number
+set expandtab
+set tabstop=4
+set shiftwidth=4
+</pre>
+
+<p>2. Basic vim commands</p>
+<pre>
+vim$ :wq - write and quit
+</pre>
+
+<p>3. CXX autocomplete</p>
+<pre>
+$ sudo apt install curl
+$ sudo apt install nodejs
+$ sudo apt install npm
+$ sudo apt install clangd
+</pre>
+
+<p>4. Install vim-plug (google)</p>
+
+<p>5. coc nvim (google)</p>
+<pre>
+call plug#begin()
+    Plug 'neoclide/coc.nvim', {'branch': 'release'}
+call plug#end()
+</pre>
+
+<p>Install plugins:</p>
+<pre>
+vim$ :PlugInstall
+</pre>
+
+<p>6. coc nvim - Example Vim configuration. Copy to vimrc</p>
+
+<p>7. coc nvim - using coc extension - coc-clangd</p>
+<pre>
+vim$ :CocInstall coc-clangd
+</pre>
+
+<p>8. More plugins</p>
+<pre>
+Plug 'jackguo380/vim-lsp-cxx-highlight'
+Plug 'joshdick/onedark.vim'
+Plug 'vim-airline/vim-airline'
+</pre>
+
+<p>File browser:</p>
+<pre>
+Plug 'preservim/nerdtree'
+</pre>
+
+<pre>
+vim$ t: open file in new tab
+vim$ ctrl+pgd: switch browser-like tab
+</pre>
+
+
+</body>
+</html>
