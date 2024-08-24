@@ -135,7 +135,7 @@ def main():
         if p.returncode == 0:
             print("success!")
 
-        #input("continue")
+        input("continue")
 
 if __name__ == "__main__":
     main()

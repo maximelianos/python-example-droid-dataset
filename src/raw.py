@@ -8,10 +8,11 @@ from skimage import io
 import glob
 import h5py
 import json
+import argparse
 
 from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from rerun_loader_urdf import URDFLogger
-import argparse
+from my_image_saver import ImageSaver
 
 import skimage
 from scipy import ndimage
@@ -54,40 +55,6 @@ def draw_sequence(image: np.array, points: list):
             canvas[rows, cols] = colors[color]
 
     return canvas
-
-class ImageSaver:
-    cache: list = [] # [(time, image)]
-    t_max_diff: int = 1000  # millis
-    t_step: int = 100
-    center_images: list = [] # [(time, image)]
-    center_time: int = 0
-    snapshots: dict = {}
-
-    def __init__(self):
-        pass
-
-    def append(self, time: int, image: np.array):
-        if len(self.cache) > 0 and abs(time - self.cache[-1][0]) < self.t_step:
-            return
-
-        self.cache.append((time, image))
-        if time - self.cache[0][0] > self.t_max_diff:
-            self.cache.pop(0)
-
-        # save images after the Moment
-        if abs(time - self.center_time) < self.t_max_diff:
-            self.center_images.append((time, image))
-
-    def save_center(self, center_time: int):
-        self.center_time = center_time
-        for time, image in self.cache:
-            # save images before the Moment
-            if abs(time - self.center_time) < self.t_max_diff:
-                self.center_images.append((time, image))
-
-    def snap(self, desc: str, image: np.array, replace=False):
-        if not desc in self.snapshots or replace:
-            self.snapshots[desc] = image
 
 
 class StereoCamera:
@@ -290,7 +257,7 @@ class RawScene:
             signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(l, i+int(self.FPS*0.2))]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
-                # gripper always on
+                # gripper on during interval
                 if self.is_gripper_closed == False:
                     self.gripper_close_count += 1
 
@@ -299,13 +266,15 @@ class RawScene:
 
                 self.is_gripper_closed = True
             elif gripper_on == 0:
-                # gripper always off
+                # gripper off during interval
                 self.is_gripper_closed = False
 
 
             if self.is_gripper_closed:
                 self.gripper_duration += 1
             # END
+
+            print(self.is_gripper_closed)
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"
