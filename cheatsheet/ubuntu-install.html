@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>Ubuntu install tips</h2>
+
+<pre>
+Ubuntu version 22.04 jammy
+
+--- APT ---
+
+- Disable APT auto-updates
+
+sudo nvim /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Unattended-Upgrade "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+
+apt-get remove update-manager
+https://askubuntu.com/questions/218755/how-to-disable-the-update-manager-popup
+
+- Timeshift for FS snapshots on BTFRS
+sudo apt-add-repository -y ppa:teejee2008/ppa && sudo apt update
+sudo apt install timeshift
+
+- grub-customizer for reducing GRUB waiting time
+sudo add-apt-repository ppa:danielrichter2007/grub-customizer
+sudo apt install grub-customizer
+
+- search new packages
+apt-cache search ^gimp
+
+- APT install specific version of package
+https://itsfoss.com/apt-install-specific-version/
+
+- Add binary to Applications menu
+Look at /usr/share/applications/*.desktop and create your own file
+
+---
+
+- VScode change indent in file explorer tree
+https://www.ryanchapin.com/vscode-change-indent-for-file-explorer-tree/
+
+- VScode disable updates
+ctrl+shift+p -> user settings (json)
+"update.mode": "none"
+
+- VSCode preview markdown by default
+ctrl+shift+p -> user settings (json)
+{
+    "workbench.editorAssociations": {
+        "*.md": "vscode.markdown.preview.editor",
+    }
+}
+
+- Slow down CPU
+sudo apt install cpupower-gui
+In GUI, select min and max frequency, and governor "powersave"
+
+--- Lubuntu 22.04.3 jammy ---
+
+sudo apt install ncdu
+sudo apt install gparted
+
+- KeePassXC
+sudo apt install libfuse2
+
+- VSCode
+sudo dpkg -i <file>.deb
+sudo apt-get install -f # Install dependencies
+
+- Multimedia
+sudo apt install dia
+
+--- Kubuntu 24.04 ---
+
+- Mount NTFS partition at boot
+Use partition manager
+
+- Power management - lock screeen instead of sleep on timer or lid closed
+
+- LaTeX
+hint: baeldung linux
+$ sudo apt update
+$ sudo apt install texlive-full
+$ sudo apt install texstudio
+</pre>
+
+<h2>References</h2>
+<ul>
+    <li><a href="https://www.youtube.com/watch?v=KCIVZR-AkFI">https://www.youtube.com/watch?v=KCIVZR-AkFI</li>
+    <li><a href="https://www.youtube.com/watch?v=XhdwvHhFROc">https://www.youtube.com/watch?v=XhdwvHhFROc</li>
+</ul>
+
+</body>
+</html>

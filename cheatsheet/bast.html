@@ -1,0 +1,194 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>CPP Cheatsheet</h2>
+
+
+<pre>
+=== Documentation
+cpluplus.com unordered map
+cppreference.com ifstream
+
+
+=== Vim
+
+:e .   # open file explorer
+ctrl+6 # return to file explorer
+/foo   # search
+* n    # next search item
+* shift+n # previous search item
+F4     # .cpp <-> .h
+
+
+=== Compiler, linker
+
+clang++ -c prime.cpp  # -> prime.o
+nm prime.o            # all symbols (func names), mangled
+nm -C prime.o         # demangle symbols
+
+:!clang-format-14 -i prime.cpp
+
+#pragma once
+
+.a   # static library, included in executable
+.so  # dynamic library, needed during runtime
+
+clang++ -o prime.exe prime.cpp libgtest.a
+clang++ -o prime.exe prime.o -lgtest
+
+-L.; -L/usr/local/lib  # search for libraries in path
+-lgtest  # find any library of this kind, system decides static or dynamic linking
+
+clang++ -o prime.exe prime.o libgtest.so.11  # link dynamically
+clang++ -o prime.exe -static prime.o   # link statically
+ldd prime.exe # which dynamic libraries are needed
+export LD_LIBRARY_PATH=. # search dynamic libraries in runtime
+
+ar cr libprime.a prime.o # create static library
+clang++ -f pic -shared prime.o -o libprime.so  # create dynamic library; position-independent code
+
+=== Makefile
+$@ - target name,
+$^ - all dependencies,
+$< - first dependency,
+$(wildcard *Main) - all files ending with Main
+
+=== GDB
+1) 
+$ clang++ -g -o exe main.c
+$ gdb --args ./exe 1543
+$ gdb ./exe -arg 1543
+$ run
+$ bt // backtrace
+2)
+$ clang++ -fsanitize=address
+$ ./exe
+3)
+$ clang++ -o exe main.c
+$ valgrind ./exe 1543 // very slow
+
+
+=== Class
+snake::numRows_ // to distinguish object variables and local variables
+static int MAX_NUM_PIXELS; // common for all objects of class
+class Foo { Foo(int x) : x_(x) {} };
+
+=== Compile flags
+-Wdeprecated -Wall -Wextra -Werror // -Weverything
+
+=== Object copy
+int &y = x; // y is "alias" for x
+
+Foo(const Foo &other) {} // Copy constructor
+Foo& operator=(const Foo &other) {} // Copy assignment
+void operator=(const Foo &other) {} // or like this
+const char *c_str() const { return array_; } // const
+explicit Foo(int x) : _x(x) {} // do not implicitly cast int to Foo
+
+=== const
+(const char) *p = "Doof";
+p[0] = 'B'; // Nein
+p = "Bloed"; // OK
+
+char* (const p) = "Doof";
+p[0] = 'B'; // OK
+p = "Bloed"; // Nein
+
+size_t size() const { size_ = 1543; return size_; } // Nein
+
+=== Function overloading - same name, different signature
+
+=== Object move
+Foo(Foo &&other); // move constructor
+Foo& operator=(Foo &&other); // move assignment
+o2 = std::move(o1);
+// Rule of five
+if any of (destructor, copy c., copy ass., move c., move ass.) is defined, others must be also defined
+
+clang-tidy-14 --list-checks -checks=* | grep move
+clang-tidy-14 foo.cpp -checks=perf*
+
+=== Function arguments
+(int x)   // pass by value (copy)
+(int *x)  // pass by pointer (copy pointer)
+(int &x)  // pass by reference (alias)
+(int &&x) // pass by rvalue (move)
+return x; // return by value; -fno-elide-constructors
+return std::move(o)  // return by rvalue
+(int *x) or (int &x) // return by argument
+
+=== Rule of 5
+If you have any of these implemented, all others must be implemented.
+
+Foo(const Foo &other); // copy
+Foo& operator=(const Foo &other);
+Foo(Foo &&other); // move
+Foo& operator=(Foo &&other);
+~Foo(); // destructor
+
+=== Template class
+template <typename T>
+class Array {
+	Array(T *array, int n);
+};
+Array<T>::Array(T *array, int n) {}
+template class Array<int>; // compile class for this type
+OR
+put method declaration in .h file.
+
+=== Template function
+template <typename T> T cube(T x) {}
+
+=== Template class specialization for type
+template <typename T>
+class Array<bool> {};
+
+=== Bitwise
+x | y or
+x & y and
+x ^ y XOR (+ mod 2)
+~x    neg
+x << 2 schieben
+
+uint8_t = unsigned 8 bit
+
+=== STL
+chrono::steady_clock
+
+=== Inheritance
+  class StringThing: public Thing {};
+Child class constructor calls default constructor of parent.
+  StringThing::StringThing(string s) : Thing(s) {}
+private - no access in child, protected - access in child
+
+=== Virtual
+Reason: store different objects in one array, or in one variable.
+std::vector<Thing*> v; v[0]->to_string();  Thing* thing; thing->to_string();
+
+virtual std::string to_string() const {}  // Parent 
+std::string to_string() const override {} // Child
+
+clang++ -Wall -Wdeprecated -Wextra -Wsuggest-override
+Destructor must be virtual.
+
+=== Abstract class
+Abstract class - if has pure virtual function (must be defined in child).
+  virtual std::string to_string() const = 0;
+Abstract class is used as template for other classes,
+objects of abstract class cannot be created.
+
+=== Pointer conversion
+IntegerThing* int_thing = dynamic_cast<IntegerThing*> &thing;
+dynamic_cast - in runtime, static_cast - in compile, reinterpret_cast - nein
+</pre>
+
+
+<h2>References</h2>
+<ul>
+</ul>
+
+</body>
+</html>

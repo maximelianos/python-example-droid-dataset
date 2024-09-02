@@ -1,0 +1,40 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+</head>
+<body>
+
+<h2>Ubuntu conda</h2>
+
+<pre>
+=== install conda
+wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_23.1.0-1-Linux-x86_64.sh
+conda config --set auto_activate_base False
+
+=== create environment
+conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow scikit-image scikit-learn tqdm jupyter notebook matplotlib seaborn
+
+pytorch torchvision opencv
+
+terminaltables imgaug
+
+conda-forge tensorboard
+torchsummary / conda-forge pytorch-model-summary
+
+# databases
+flake8 mypy pytorch-cpu
+
+# lmbcluster
+conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow scikit-image scikit-learn tqdm jupyter notebook matplotlib seaborn pytorch torchvision opencv
+
+conda create -n test python=3.11
+</pre>
+
+<h2>References</h2>
+<ul>
+    <li><a href="https://www.youtube.com/watch?v=KCIVZR-AkFI">https://www.youtube.com/watch?v=KCIVZR-AkFI</li>
+    <li><a href="https://www.youtube.com/watch?v=XhdwvHhFROc">https://www.youtube.com/watch?v=XhdwvHhFROc</li>
+</ul>
+
+</body>
+</html>
