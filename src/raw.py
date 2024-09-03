@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Read video and trajectory, pipe images to rerun.
+
 import numpy as np
 from pathlib import Path
 import rerun as rr
@@ -273,8 +276,6 @@ class RawScene:
             if self.is_gripper_closed:
                 self.gripper_duration += 1
             # END
-
-            print(self.is_gripper_closed)
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"

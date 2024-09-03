@@ -1,3 +1,8 @@
+# Find marker segmentation by difference between two images.
+# I take first image in the video, where the marker is in intial position,
+# and an image during grip, where the TCP is most distant in 2D space.
+# This approach doesn't work.
+
 from pathlib import Path
 import json
 

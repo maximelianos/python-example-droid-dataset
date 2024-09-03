@@ -260,26 +260,6 @@ class RawScene:
         
         return return_dict
 
-    def log(self) -> None:
-        time_stamps_nanos = self.trajectory["observation"]["timestamp"]["robot_state"][
-            "robot_timestamp_nanos"
-        ]
-        time_stamps_seconds = self.trajectory["observation"]["timestamp"][
-            "robot_state"
-        ]["robot_timestamp_seconds"]
-        for i in range(self.trajectory_length):
-            time_stamp = time_stamps_seconds[i] * int(1e9) + time_stamps_nanos[i]
-            # print(time_stamp)  # nanoseconds
-
-            # MV
-            images: dict = self.log_cameras_next(i)
-            
-            # plot_path = "data/tmp.jpg"
-            # cv2.imwrite(plot_path, cv2.cvtColor(images["cameras/ext1/left"], cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
-            # input("continue")
-            
-            if i > 600:
-               break
 
 def main():
     # MV
@@ -293,12 +273,12 @@ def main():
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
     args = parser.parse_args()
 
-    # remove leftover files
-    for file in Path("data/frames").glob("center*jpg"):
-        file.unlink()
-
     raw_scene: RawScene = RawScene(args.scene, args.visualize)
-    raw_scene.log()
+    images: dict = raw_scene.log_grip_frame()
+
+    plot_path = "data/tmp.jpg"
+    cv2.imwrite(plot_path, cv2.cvtColor(images["cameras/ext1/left"], cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
+    input("continue")
 
 if __name__ == "__main__":
     main()

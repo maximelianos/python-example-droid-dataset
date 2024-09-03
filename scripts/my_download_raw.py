@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Select episodes based on text annotation and download.
 
 from pathlib import Path
 import subprocess
@@ -33,6 +34,7 @@ def main():
         "Downloads a succesfull scene from the raw version of the dataset"
     )
     parser.add_argument("--out", default=None, type=Path, help="where to store data, by default it gets puts in data/")
+    parser.add_argument('--debug', action='store_true', help="stop on debug points")
     args = parser.parse_args()
 
     if args.out is None:
@@ -105,7 +107,8 @@ def main():
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)
 
     print("to download:", len(selected_list))
-    input("continue...")
+    if args.debug:
+        input("continue...")
 
     for uuid in selected_list:
         # IPRL+w026bb9b+2023-04-20-23h-28m-09s
@@ -135,7 +138,8 @@ def main():
         if p.returncode == 0:
             print("success!")
 
-        input("continue")
+        if args.debug:
+            input("continue")
 
 if __name__ == "__main__":
     main()

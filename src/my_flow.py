@@ -1,4 +1,8 @@
 # hint: torchvision optical flow
+# Find the approximate TCP position.
+# I take the first frame during grip and the next frame, compute optical flow,
+# and take the lowest part in the moving field.
+# The optical flow is too inaccurate for this task, approximation is bad.
 
 from pathlib import Path
 import numpy as np

@@ -1,4 +1,6 @@
-# download only text .json files (300 mb)
+# Create list of existing episodes.
+# Produce data/existing_episodes.json
+# Prerequisite: download only text .json files (300 mb)
 # $ gsutil -m rsync -r -x "(.*npy)|(.*mp4)|(.*svo)|(.*h5)|(failure)|(timestamp)" gs://gresearch/robotics/droid_raw/1.0.1/  droid_raw
 # $ python scripts/process01.py --data ../droid_raw/
 
