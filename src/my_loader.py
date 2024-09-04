@@ -87,7 +87,7 @@ class DetectAndSegment:
             print("frame", i)
 
             # limit trajectory length
-            if len(self.rgb) > 50:
+            if len(self.rgb) >= 70:
                 break
 
             # read frame
@@ -102,9 +102,13 @@ class DetectAndSegment:
             if not self.raw_scene.is_gripper_closed:
                 continue
 
+            # skip frames in between
+            #if (len(self.rgb) + i) % 4 != 0:
+            #    continue
+
             if self.start == -1:
-                self.start = i
-            self.stop = i
+                self.start = 0
+            self.stop = len(self.rgb) - 1
 
             self.rgb.append(images["cameras/ext1/left"])
 

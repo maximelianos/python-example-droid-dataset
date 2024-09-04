@@ -239,6 +239,14 @@ class RawScene:
 
         self.imsaver: ImageSaver = ImageSaver()
 
+        # computed from nick
+        self.calc_trajectory = None
+        trajectory_path = "data/trajectory.npy"
+        if Path(trajectory_path).exists():
+            with open(trajectory_path, "rb") as f:
+                self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
+                print("loaded the calculated trajectory")
+
     def log_cameras_next(self, i: int) -> None:
         """
         Log data from cameras at step `i`.
@@ -257,7 +265,10 @@ class RawScene:
 
             # MV compute gripper state
             l = len(self.action['gripper_position'])
-            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(l, i+int(self.FPS*0.2))]
+            signal = self.action['gripper_position'][
+                     max(0, i - int(self.FPS * 0.8) + int(self.FPS * 0.5)):
+                     min(self.trajectory_length, i + int(self.FPS * 0.8) + int(self.FPS * 0.5))
+                     ]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper on during interval
@@ -395,7 +406,7 @@ class RawScene:
                             self.imsaver.snap("max", left_image, replace=True)
 
                 # === draw projection 1
-                left_image = draw_sequence(left_image, [(x, y, 2)])
+                # left_image = draw_sequence(left_image, [(x, y, 2)])
 
                 h, w, c = left_image.shape
                 if 0 <= y < h and 0 <= x < w:
@@ -406,6 +417,12 @@ class RawScene:
                 cam = cam / cam[2]
                 x, y = cam[0], cam[1]
                 left_image = draw_sequence(left_image, [(x, y, 1)])
+
+                # track point
+                if self.first_touch != -1:
+                    if i - self.first_touch < self.calc_trajectory.shape[0]:
+                        y, x = self.calc_trajectory[i - self.first_touch].reshape((2))
+                        left_image = draw_sequence(left_image, [(x, y, 1)])
 
                 # Ignore points that are far away.
 

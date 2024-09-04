@@ -222,14 +222,17 @@ class DetectionProcessor:
         with torch.no_grad():
             results = self.object_detector(image,  candidate_labels=labels, threshold=threshold)
             results = [DetectionResult.from_dict(result) for result in results]
-        
+
+        # no detections
+        if not results:
+            return results
+
         # select only one box with maximum score
         max_score_idx = 0
         for i in range(len(results)):
             if results[i].score > results[max_score_idx].score:
                 max_score_idx = i
         results = [results[max_score_idx]]
-
         return results
 
     def segment(
@@ -242,26 +245,24 @@ class DetectionProcessor:
         """
         Use Segment Anything (SAM) to generate masks given an image + a set of bounding boxes.
         """
-        
+        if not detection_results:
+            return detection_results
 
-        if len(detection_results) != 0:
-            
+        boxes = get_boxes(detection_results)
 
-            boxes = get_boxes(detection_results)
+        with torch.no_grad():
+            inputs = self.processor(images=image, input_boxes=boxes, return_tensors="pt").to(self.device)
+            outputs = self.segmentator(**inputs)
+            masks = self.processor.post_process_masks(
+                masks=outputs.pred_masks,
+                original_sizes=inputs.original_sizes,
+                reshaped_input_sizes=inputs.reshaped_input_sizes
+            )[0]
 
-            with torch.no_grad():
-                inputs = self.processor(images=image, input_boxes=boxes, return_tensors="pt").to(self.device)
-                outputs = self.segmentator(**inputs)
-                masks = self.processor.post_process_masks(
-                    masks=outputs.pred_masks,
-                    original_sizes=inputs.original_sizes,
-                    reshaped_input_sizes=inputs.reshaped_input_sizes
-                )[0]
+            masks = refine_masks(masks, polygon_refinement)
 
-                masks = refine_masks(masks, polygon_refinement)
-
-            for detection_result, mask in zip(detection_results, masks):
-                detection_result.mask = mask
+        for detection_result, mask in zip(detection_results, masks):
+            detection_result.mask = mask
 
         return detection_results
 

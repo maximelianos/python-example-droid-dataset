@@ -220,8 +220,10 @@ class RawScene:
                continue
 
             # MV compute gripper state
-            l = len(self.action['gripper_position'])
-            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.8)):min(l, i+int(self.FPS*0.8))]
+            signal = self.action['gripper_position'][
+                     max(0, i - int(self.FPS * 0.8) + int(self.FPS * 0.5)):
+                     min(self.trajectory_length, i + int(self.FPS * 0.8) + int(self.FPS * 0.5))
+                     ]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper always on
