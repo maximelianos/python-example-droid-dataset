@@ -84,13 +84,14 @@ def main():
         
         for annot_key in annotations[date]:
             annot = annotations[date][annot_key].lower() # very important!
-            regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
-            regex2 = r"move.*(forward|backwards|left|right)"
-            if len(annot) > 60 or re.findall(regex1, annot) or re.findall(regex2, annot):
-                is_good = False
+            #regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
+            #regex2 = r"move.*(forward|backwards|left|right)"
+            #if len(annot) > 60 or re.findall(regex1, annot) or re.findall(regex2, annot):
+            #    is_good = False
             
             is_match = (
-                "marker" in annot
+                #"marker" in annot
+                "block" in annot
             )
             if is_match:
                 save_key = annot_key
