@@ -8,11 +8,12 @@ import glob
 import h5py
 import json
 import argparse
-
-from my_videoreader import RawScene
-from my_sam import DetectionResult, DetectionProcessor, plot_detections
-
 import PIL
+
+from .my_videoreader import RawScene
+from .my_sam import DetectionResult, DetectionProcessor, plot_detections
+
+
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
@@ -26,6 +27,8 @@ class DetectAndSegment:
         self.rgb = []
         self.start = -1
         self.stop = -1
+
+        self.intrinsics = None
 
         # === extract frames
         self.raw_scene: RawScene = RawScene(scene, False)
@@ -59,7 +62,9 @@ class DetectAndSegment:
             polygon_refinement=True,
         )
 
-        plot_detections(image_array, detections, "data/segmentation.jpg")
+        plot_path = Path("data/segmentation.jpg")
+        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        plot_detections(image_array, detections, str(plot_path))
 
         # save detection in this class member variable
         if detections:
@@ -79,18 +84,21 @@ class DetectAndSegment:
         # === read all frames into memory...
 
         for i in range(1, self.raw_scene.trajectory_length):
-            # ban gripper closing for the second time
-            if self.raw_scene.gripper_close_count > 1:
-                break
+            print("frame", i)
 
             # limit trajectory length
-            if len(self.rgb) > 10:
+            if len(self.rgb) > 50:
                 break
 
             # read frame
             images: dict = self.raw_scene.log_cameras_next(i)
 
+            # ban gripper closing for the second time
+            if self.raw_scene.gripper_close_count > 1:
+                break
+
             # skip when not closed
+            print("gripper closed", self.raw_scene.is_gripper_closed)
             if not self.raw_scene.is_gripper_closed:
                 continue
 
@@ -101,20 +109,24 @@ class DetectAndSegment:
             self.rgb.append(images["cameras/ext1/left"])
 
     def get_start_stop(self) -> tuple[int, int]:
-        return (self.start, self.stop)
+        return (0, self.stop - self.start)
 
     def get_timesteps(self, n_frames: int) -> list[int]:
-        return list(range(self.start, self.stop))
+        return list(range(0, self.stop - self.start))
 
     def get_rgb(self, timestamp: int) -> np.ndarray:
-        return self.rgb[timestamp - self.start]
+        return self.rgb[timestamp]
 
     def get_depth(self, timestamp: int) -> np.ndarray:
         return np.zeros_like(self.rgb[0])
 
-    def get_object_mask(self, timestamp: int) -> np.ndarray:
-        # return uint8 (h, w) [0, 255]
-        return self.detection.mask
+    def get_object_mask(self, timestamp: int, refined=False) -> np.ndarray:
+        # return uint8 (h, w, 1) [0, 255]
+        return self.detection.mask[:, :, np.newaxis]
+
+    def get_goal_mask(self, timestamp: int, refined=False) -> np.ndarray:
+        # return uint8 (h, w, 1) [0, 255]
+        return self.detection.mask[:, :, np.newaxis]
 
     def get_bbox(self, demo_start: int, object_key: str):
         box = self.detection.box
@@ -149,7 +161,7 @@ def main():
     # loader.get_timesteps(n_frames: int) -> list[int]
     # loader.get_rgb(timestamp) -> np.array
     # loader.get_depth(timestamp) -> np.array
-    # loader.get_object_mask(timestamp) -> np.array
+    # loader.get_object_mask(timestamp) -> np.array (h, w, 1)
     # loader.get_goal_mask(int) -> np.array
     # loader.get_bbox(demo_start: int, "hand_bbox") -> [x_start, x_stop, y_start, y_stop]
 

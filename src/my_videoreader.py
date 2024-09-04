@@ -13,13 +13,12 @@ import glob
 import h5py
 import json
 import argparse
-
-from common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
-from rerun_loader_urdf import URDFLogger
-from my_image_saver import ImageSaver
-
 import skimage
 from scipy import ndimage
+
+from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
+from .rerun_loader_urdf import URDFLogger
+from .my_image_saver import ImageSaver
 
 class StereoCamera:
     left_images: list[np.ndarray]
@@ -222,7 +221,7 @@ class RawScene:
 
             # MV compute gripper state
             l = len(self.action['gripper_position'])
-            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(l, i+int(self.FPS*0.2))]
+            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.8)):min(l, i+int(self.FPS*0.8))]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper always on
