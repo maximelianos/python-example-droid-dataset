@@ -5,9 +5,6 @@ import datetime as dt
 import subprocess
 import shutil
 
-from src.difference import Difference
-from src.flow import FlowProcessor
-
 def main():
     root_dir = Path(__file__).parent
     target_dir = root_dir / "data" / "droid_raw" / "1.0.1"
@@ -85,7 +82,7 @@ def main():
 
     # MV
     # diff_processor = Difference()
-    flow_processor = FlowProcessor()
+    # flow_processor = FlowProcessor()
 
     for episode in episodes:
         episode = episodes[2]

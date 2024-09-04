@@ -239,6 +239,10 @@ class RawScene:
 
         self.imsaver: ImageSaver = ImageSaver()
 
+        # plot trajectory from nick
+        with open("data/trajectory.npy", "rb") as f:
+            self.calc_trajectory = np.load(f) # (n, 1, 2) - x, y
+
     def log_cameras_next(self, i: int) -> None:
         """
         Log data from cameras at step `i`.
@@ -257,7 +261,7 @@ class RawScene:
 
             # MV compute gripper state
             l = len(self.action['gripper_position'])
-            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.2)):min(l, i+int(self.FPS*0.2))]
+            signal = self.action['gripper_position'][max(0, i-int(self.FPS*0.8)):min(l, i+int(self.FPS*0.8))]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper on during interval
@@ -406,6 +410,11 @@ class RawScene:
                 cam = cam / cam[2]
                 x, y = cam[0], cam[1]
                 left_image = draw_sequence(left_image, [(x, y, 1)])
+
+                # plot trajectory from nick
+                if self.first_touch != -1:
+                    x, y = self.calc_trajectory[i - self.first_touch].flatten()
+                    left_image = draw_sequence(left_image, [(y, x, 1)])
 
                 # Ignore points that are far away.
 

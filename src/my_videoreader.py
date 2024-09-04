@@ -92,7 +92,7 @@ class StereoCamera:
             # print(f"opening {mp4_path}")
 
 
-    def get_next_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray | None] | None:
+    def get_next_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Gets the the next from both cameras and maybe computes the depth."""
 
         if hasattr(self, "zed"):
