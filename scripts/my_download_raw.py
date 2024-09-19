@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Select episodes based on text annotation and download.
+# Based on download_raw.py
 
 from pathlib import Path
 import subprocess
@@ -8,43 +9,20 @@ import json
 from datetime import datetime
 import re
 
-def launch_cmd(cmds, stdout=False, show=False) -> subprocess.CompletedProcess:
-    """
-    :param cmds: list of commands
-    :param stdout: bool, return stdout as str
-    :param show: bool, write to stdout
-    :return: None
-    """
-    proc: subprocess.CompletedProcess
-    for cmd in cmds:
-        print(cmd)
-        if stdout:
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
-        elif show:
-            proc = subprocess.run(cmd)
-        else:
-            proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        if proc.returncode != 0:
-            return proc
-    return proc
-
 def main():
     parser = argparse.ArgumentParser(
         "Downloads a succesfull scene from the raw version of the dataset"
     )
-    parser.add_argument("--out", default=None, type=Path, help="where to store data, by default it gets puts in data/")
-    parser.add_argument('--debug', action='store_true', help="stop on debug points")
+    parser.add_argument("--out", default=None, type=Path, help="where to store data, by default in data/")
+    parser.add_argument('--debug', action='store_true', help="stop on points")
     args = parser.parse_args()
-
     if args.out is None:
+        # ./scripts/my_download_raw.py
         root_dir = Path(__file__).parent.parent
         target_dir = root_dir / "data" / "droid_raw" / "1.0.1"
     else:
         target_dir = args.out
-
-    if not target_dir.exists():
-        target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     annotations_file_name = "aggregated-annotations-030724.json"
     if not (target_dir / annotations_file_name).exists():
@@ -59,31 +37,31 @@ def main():
         subprocess.run(command)
 
     with open(target_dir / annotations_file_name) as f:
+        # scheme { str uuid: {"language_instruction1": str, ...} }
         annotations = json.load(f)
     print("episodes before cleaning:", len(annotations.keys()))
 
-    # MV: created special file to convert uuid to path
-    # === result scheme
-    # === { "IRIS+ef107c48+2023-03-02-15h-14m-31s": IRIS/success/(date)/(time) }
+    # MV existing episodes [date, uuid, path]
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
+    uuid_to_path = {episode[1]: episode[2] for episode in existing_episodes}
 
-    # remove all non-existing episodes!
+    # remove non-existing episodes
     intersection = {}
     for uuid in annotations:
-        if uuid in existing_episodes:
+        if uuid in uuid_to_path:
             intersection[uuid] = annotations[uuid]
     annotations = intersection
     print("episodes after cleaning:", len(annotations.keys()))
 
     # === filter based on annotation
     selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"language_instruction1": ...}}
-    for date in annotations:
+    for uuid in annotations:
         is_good = True
         to_save = False
         
-        for annot_key in annotations[date]:
-            annot = annotations[date][annot_key].lower() # very important!
+        for annot_key in annotations[uuid]:
+            annot = annotations[uuid][annot_key].lower() # very important!
             #regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
             #regex2 = r"move.*(forward|backwards|left|right)"
             #if len(annot) > 60 or re.findall(regex1, annot) or re.findall(regex2, annot):
@@ -97,20 +75,17 @@ def main():
                 save_key = annot_key
                 to_save = True
         if is_good and to_save:
-            selected_episodes[date] = annotations[date][save_key]
+            selected_episodes[uuid] = annotations[uuid][save_key]
     print("selected:", len(selected_episodes))
-
     selected_list = sorted(list(selected_episodes.keys()))
     selected_list = selected_list[::len(selected_list) // 100][:100] # select 200 episodes uniformly
-
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)
-
     print("to download:", len(selected_list))
-    if args.debug:
-        input("continue...")
+    input("continue...")
 
+    # === download
     for uuid in selected_list:
         # IPRL+w026bb9b+2023-04-20-23h-28m-09s
         print("=== download", uuid)
@@ -128,8 +103,8 @@ def main():
         # year-month-day
         rel_path = f"success/{date.year}-{date.month:0>2}-{date.day:0>2}"
 
-        # === gs://gresearch/robotics/droid_raw/1.0.1/ <- root for existing_episodes
-        src_path = f"gs://gresearch/robotics/droid_raw/1.0.1/" + existing_episodes[uuid]
+        # === gs://gresearch/robotics/droid_raw/1.0.1/ <- root
+        src_path = f"gs://gresearch/robotics/droid_raw/1.0.1/" + uuid_to_path[uuid]
         dst_path = target_dir / rel_path
         dst_path.mkdir(parents=True, exist_ok=True)
         command = ["gsutil", "-m", "cp", "-n", "-r", src_path, dst_path]

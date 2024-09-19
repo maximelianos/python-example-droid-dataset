@@ -17,7 +17,7 @@ from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-class DetectAndSegment:
+class DroidLoader:
     def __init__(self, scene: str):
         self.i: int = 0
         self.image: np.array = {}
@@ -147,7 +147,7 @@ def main():
     parser.add_argument('--visualize', action='store_true')
     args = parser.parse_args()
 
-    loader = DetectAndSegment(args.scene)
+    loader = DroidLoader(args.scene)
     loader.read_trajectory()
     start, stop = loader.get_start_stop()
     print("start, stop", loader.get_start_stop())
@@ -160,7 +160,7 @@ def main():
     imginfo(loader.get_object_mask(start))
     print("bbox", loader.get_bbox(start, "hand_bbox"))
 
-    # TODO
+    # Interface
     # loader.get_start_stop() -> [int, int]
     # loader.get_timesteps(n_frames: int) -> list[int]
     # loader.get_rgb(timestamp) -> np.array

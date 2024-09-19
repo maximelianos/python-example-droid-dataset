@@ -4,24 +4,32 @@ import re
 import datetime as dt
 import subprocess
 import shutil
+import argparse
 
 def main():
+    parser = argparse.ArgumentParser(
+        "Plot trajectory for all downloaded episodes"
+    )
+    parser.add_argument('--debug', action='store_true', help="stop on points")
+    args = parser.parse_args()
+
     root_dir = Path(__file__).parent
     target_dir = root_dir / "data" / "droid_raw" / "1.0.1"
     annotations_file_name = "aggregated-annotations-030724.json"
     with open(target_dir / annotations_file_name) as f:
         annotations = json.load(f)
     
-    # === result scheme
-    # === { "IRIS+ef107c48+2023-03-02-15h-14m-31s": IRIS/success/(date)/(time) }
+    # [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
 
+    # list of available episodes
     data = Path("data/droid_raw/1.0.1/success")
     episodes = []
     for date in sorted(data.iterdir()):
         for episode in sorted(date.iterdir()):
             # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
+            # .    .         .     .       date       episode
             episodes.append(episode)
             print(f"{len(episodes): >4}", episode)
     # episodes = episodes[:50]

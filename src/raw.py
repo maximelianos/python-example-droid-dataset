@@ -419,10 +419,12 @@ class RawScene:
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
                 # track point
-                if self.first_touch != -1:
-                    if i - self.first_touch < self.calc_trajectory.shape[0]:
-                        y, x = self.calc_trajectory[i - self.first_touch].reshape((2))
-                        left_image = draw_sequence(left_image, [(x, y, 1)])
+                if (self.calc_trajectory and
+                    self.first_touch != -1 and
+                    i - self.first_touch < self.calc_trajectory.shape[0]
+                ):
+                    y, x = self.calc_trajectory[i - self.first_touch].reshape((2))
+                    left_image = draw_sequence(left_image, [(x, y, 1)])
 
                 # Ignore points that are far away.
 
@@ -529,8 +531,8 @@ class RawScene:
             self.log_action(i)
             self.log_cameras_next(i)
 
-            if i > 600:
-               break
+            #if i > 600:
+            #   break
 
     # MV
     def draw_image(self, path):
