@@ -62,10 +62,14 @@ def main():
         
         for annot_key in annotations[uuid]:
             annot = annotations[uuid][annot_key].lower() # very important!
-            #regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
-            #regex2 = r"move.*(forward|backwards|left|right)"
-            #if len(annot) > 60 or re.findall(regex1, annot) or re.findall(regex2, annot):
-            #    is_good = False
+            regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
+            regex2 = r"move.*(forward|backwards|left|right)"
+            regex3 = r"(close|drawer)"
+            if len(annot) > 60 or (
+                #re.findall(regex1, annot) or re.findall(regex2, annot)
+                re.findall(regex3, annot)
+            ):
+               is_good = False
             
             is_match = (
                 #"marker" in annot
@@ -78,7 +82,7 @@ def main():
             selected_episodes[uuid] = annotations[uuid][save_key]
     print("selected:", len(selected_episodes))
     selected_list = sorted(list(selected_episodes.keys()))
-    selected_list = selected_list[::len(selected_list) // 100][:100] # select 200 episodes uniformly
+    selected_list = selected_list[:100] # select 200 episodes uniformly
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)

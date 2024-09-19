@@ -531,8 +531,8 @@ class RawScene:
             self.log_action(i)
             self.log_cameras_next(i)
 
-            #if i > 600:
-            #   break
+            if i > 600:
+              break
 
     # MV
     def draw_image(self, path):

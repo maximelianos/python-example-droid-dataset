@@ -116,9 +116,8 @@ def main():
         print("plot path:", plot_path)
 
         # MV debug
-        VISUALIZE = 1
         command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path]
-        if VISUALIZE:
+        if args.debug:
             command.append("--visualize")
         print(f'Running: "{" ".join(map(str, command))}"')
         p: subprocess.CompletedProcess = subprocess.run(command)
@@ -161,7 +160,7 @@ def main():
         with open("data/complete_log.json", "w") as f:
             json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-        input("continue") # INTER
+        input("continue")
 
 if __name__ == "__main__":
     main()
