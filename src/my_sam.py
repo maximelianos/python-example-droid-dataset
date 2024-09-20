@@ -245,6 +245,8 @@ class DetectionProcessor:
         """
         Use Segment Anything (SAM) to generate masks given an image + a set of bounding boxes.
         """
+
+        # no detections
         if not detection_results:
             return detection_results
 

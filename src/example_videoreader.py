@@ -1,3 +1,7 @@
+# Class DroidLoader for:
+# 1) detect and segment first frame
+# 2) get frames during grip
+
 import numpy as np
 from pathlib import Path
 import rerun as rr
@@ -14,7 +18,7 @@ from my_sam import DetectionResult, DetectionProcessor, plot_detections
 
 import PIL
 
-class DetectAndSegment:
+class DroidLoader:
     def __init__(self, scene: str):
         self.i: int = 0
         self.image: np.array = {}
@@ -65,14 +69,6 @@ class DetectAndSegment:
         else:
             self.detection = None
 
-    # def next_frame(self) -> np.ndarray:
-    #     images: dict = self.raw_scene.log_cameras_next(self.i)
-    #     self.i += 1
-    #
-    #     self.is_gripper_closed = self.raw_scene.is_gripper_closed
-    #     self.image = images["cameras/ext1/left"]
-    #     return self.image
-
     def read_trajectory(self):
         # === read all frames into memory...
 
@@ -95,7 +91,6 @@ class DetectAndSegment:
             if self.start == -1:
                 self.start = i
             self.stop = i
-
             self.rgb.append(images["cameras/ext1/left"])
 
     def get_start_stop(self) -> tuple[int, int]:
@@ -129,7 +124,8 @@ def main():
     parser.add_argument('--visualize', action='store_true')
     args = parser.parse_args()
 
-    loader = DetectAndSegment(args.scene)
+    loader = DroidLoader(args.scene)
+
     loader.read_trajectory()
     start, stop = loader.get_start_stop()
     print(loader.get_start_stop())

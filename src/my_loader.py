@@ -10,7 +10,7 @@ import json
 import argparse
 import PIL
 
-from .my_videoreader import RawScene
+from .raw import RawScene
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
 
