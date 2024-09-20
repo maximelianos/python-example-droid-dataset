@@ -1,7 +1,3 @@
-# Class DroidLoader for:
-# 1) detect and segment first frame
-# 2) get frames during grip
-
 import numpy as np
 from pathlib import Path
 import rerun as rr

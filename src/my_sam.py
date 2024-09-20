@@ -288,6 +288,7 @@ class DetectionProcessor:
 # === INFERENCE ALL IMAGES
 
 def process_all():
+    # DO NOT USE
     detector_id = "IDEA-Research/grounding-dino-base"
     segmenter_id = "facebook/sam-vit-base"
     processor = DetectionProcessor(detector_id, segmenter_id)

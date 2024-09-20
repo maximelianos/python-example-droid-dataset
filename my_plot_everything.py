@@ -6,11 +6,13 @@ import subprocess
 import shutil
 import argparse
 
+from src.process_imitation_flow import process_trajectory
+
 def main():
     parser = argparse.ArgumentParser(
         "Plot trajectory for all downloaded episodes"
     )
-    parser.add_argument('--debug', action='store_true', help="stop on points")
+    parser.add_argument('--debug', action='store_true', help="stop on debug points")
     args = parser.parse_args()
 
     root_dir = Path(__file__).parent
@@ -20,8 +22,8 @@ def main():
         annotations = json.load(f)
     
     # [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
-    with open("data/existing_episodes.json") as f:
-        existing_episodes = json.load(f)
+    # with open("data/existing_episodes.json") as f:
+    #     existing_episodes = json.load(f)
 
     # list of available episodes
     data = Path("data/droid_raw/1.0.1/success")
@@ -40,15 +42,6 @@ def main():
         "2023-04-27/Thu_Apr_27_23:07:13_2023",
         "2023-04-27/Thu_Apr_27_23:13:21_2023"
     ]
-    include = [
-        "IRIS+ef107c48+2023-03-02-15h-00m-02s",
-        "IRIS+ef107c48+2023-03-02-17h-31m-58s",
-        "IRIS+ef107c48+2023-03-07-15h-31m-32s",
-        "IRIS+ef107c48+2023-03-07-16h-20m-41s",
-        "IRIS+ef107c48+2023-03-08-14h-42m-57s",
-        "IRIS+7dfa2da3+2023-04-26-10h-12m-33s",
-        "CLVR+236539bc+2023-05-17-19h-02m-59s"
-    ]
     
     for ex_ep in exclude:
         for i in range(len(episodes)):
@@ -56,16 +49,6 @@ def main():
                 episodes.pop(i)
                 print("removed", ex_ep)
                 break
-    
-    # included_episodes = []
-    # for ex_ep in include:
-    #     for i in range(len(episodes)):
-    #         # IRIS/success/2023-03-08/Wed_Mar__8_14_42_57_2023 -> success/2023-03-08/Wed_Mar__8_14_42_57_2023
-    #         path = "/".join(existing_episodes[ex_ep].split("/")[1:])
-    #         print(path)
-    #         if path in str(episodes[i]):
-    #             included_episodes.append(episodes[i])
-    # episodes = included_episodes
 
     print("episodes:", len(episodes))
     input("continue...")
@@ -111,11 +94,14 @@ def main():
         org = uuid.split("+")[0]
 
 
-        # === trajectory plot
+
         plot_path = Path("plot") / (date_str + ".jpg")
         print("plot path:", plot_path)
 
-        # MV debug
+        # === SAM
+        process_trajectory(episode)
+
+        # === trajectory plot
         command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path]
         if args.debug:
             command.append("--visualize")

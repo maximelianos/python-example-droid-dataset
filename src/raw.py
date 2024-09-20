@@ -370,7 +370,7 @@ class RawScene:
 
 
 
-            # === frame
+            # === process frame
             frames = camera.get_next_frame()
             if not frames:
                 continue
@@ -412,14 +412,14 @@ class RawScene:
                         self.max_distance_grip = cur_distance
                         self.imsaver.snap("max", left_image, replace=True)
 
-            # === draw projection 1
+            # === base projection
             # left_image = draw_sequence(left_image, [(x, y, 2)])
 
             h, w, c = left_image.shape
             if 0 <= y < h and 0 <= x < w:
                 self.visible_count += 1
 
-            # second projection
+            # finger projection
             cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
             cam = cam / cam[2]
             x, y = cam[0], cam[1]

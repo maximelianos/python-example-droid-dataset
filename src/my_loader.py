@@ -1,3 +1,6 @@
+# Detect and segment first frame,
+# return frames during grip
+
 import numpy as np
 from pathlib import Path
 import rerun as rr
@@ -28,19 +31,11 @@ class DroidLoader:
         self.start = -1
         self.stop = -1
 
-        self.intrinsics = None
-
         # === extract frames
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
         self.i += 1
         self.image = images["cameras/ext1/left"]
-
-        # debug
-
-        # imginfo(images["cameras/ext1/left"])
-        # plot_path = "data/tmp.jpg"
-        # cv2.imwrite(plot_path, cv2.cvtColor(images["cameras/ext1/left"], cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
 
         # === detect objects
         detector_id = "IDEA-Research/grounding-dino-base"
@@ -50,8 +45,8 @@ class DroidLoader:
         labels = ["a pen."]
         threshold = 0.3
 
+        # === debug
         # image = images["cameras/ext1/left"] # cv2.imread(image_url)[:,:,::-1].astype(np.float32) / 255
-        # MV debug
         # plot_path = Path("data") / "frame.jpg"
         # cv2.imwrite(plot_path, cv2.cvtColor(image * 255, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
 
@@ -71,14 +66,6 @@ class DroidLoader:
             self.detection = detections[0]
         else:
             self.detection = None
-
-    # def next_frame(self) -> np.ndarray:
-    #     images: dict = self.raw_scene.log_cameras_next(self.i)
-    #     self.i += 1
-    #
-    #     self.is_gripper_closed = self.raw_scene.is_gripper_closed
-    #     self.image = images["cameras/ext1/left"]
-    #     return self.image
 
     def read_trajectory(self):
         # === read all frames into memory...
