@@ -1,7 +1,7 @@
 from pathlib import Path
 import cv2
 
-from raw import RawScene
+from .raw import RawScene
 
 if __name__ == "__main__":
     scene = Path("data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023")

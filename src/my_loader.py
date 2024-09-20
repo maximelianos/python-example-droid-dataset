@@ -31,6 +31,8 @@ class DroidLoader:
         self.start = -1
         self.stop = -1
 
+        self.intrinsics = None
+
         # === extract frames
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
@@ -42,7 +44,7 @@ class DroidLoader:
         segmenter_id = "facebook/sam-vit-base"
         processor = DetectionProcessor(detector_id, segmenter_id)
 
-        labels = ["a pen."]
+        labels = ["a green cube."]
         threshold = 0.3
 
         # === debug

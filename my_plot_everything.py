@@ -102,7 +102,7 @@ def main():
         process_trajectory(episode)
 
         # === trajectory plot
-        command = ["src/raw.py", "--visualize", "--scene", str(episode), "--plot", plot_path]
+        command = ["python", "-m", "src.raw", "--scene", str(episode), "--plot", plot_path]
         if args.debug:
             command.append("--visualize")
         print(f'Running: "{" ".join(map(str, command))}"')

@@ -82,7 +82,7 @@ def main():
             selected_episodes[uuid] = annotations[uuid][save_key]
     print("selected:", len(selected_episodes))
     selected_list = sorted(list(selected_episodes.keys()))
-    selected_list = selected_list[:100] # select 200 episodes uniformly
+    selected_list = selected_list[:10] # select 200 episodes uniformly
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)

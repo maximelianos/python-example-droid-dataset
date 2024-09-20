@@ -404,7 +404,7 @@ class RawScene:
 
             # === after first touch
             if self.first_touch != -1:
-                self.points.append((x, y, 0))
+                # self.points.append((x, y, 0))
 
                 if self.is_gripper_closed and self.gripper_close_count == 1:
                     cur_distance = np.sum((point_2d - self.first_touch_2d) ** 2)
@@ -423,14 +423,15 @@ class RawScene:
             cam = self.left_proj_mat @ (self.world_pos_3d @ [0, 0, 0, 1] ) # [x*z, y*z, z]
             cam = cam / cam[2]
             x, y = cam[0], cam[1]
-            left_image = draw_sequence(left_image, [(x, y, 1)])
+            # left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # track point
-            if (self.calc_trajectory and
+            if (self.calc_trajectory is not None and
                 self.first_touch != -1 and
                 i - self.first_touch < self.calc_trajectory.shape[0]
             ):
                 y, x = self.calc_trajectory[i - self.first_touch].reshape((2))
+                self.points.append((x, y, 0))
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # Ignore points that are far away.
