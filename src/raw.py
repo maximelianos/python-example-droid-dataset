@@ -267,10 +267,21 @@ class RawScene:
                continue
 
             # MV compute gripper state
-            signal = self.action['gripper_position'][
-                     max(0, i - int(self.FPS * 0.8) + int(self.FPS * 0.5)):
-                     min(self.trajectory_length, i + int(self.FPS * 0.8) + int(self.FPS * 0.5))
-                     ]
+            # Apply a "box filter", inside the interval the state must be constant.
+            # Look a bit into future (gripper off -> gripper on).
+            # Look a bit into past (gripper on -> gripper off).
+            box_filter = self.FPS * 0.4 # sec
+            offset = self.FPS * 0.3 # sec
+            if not self.is_gripper_closed:
+                signal = self.action['gripper_position'][
+                                             max(0, int(i - box_filter + offset)):
+                        int(i + offset)
+                ]
+            else:
+                signal = self.action['gripper_position'][
+                                            int(i - offset):
+                        min(self.trajectory_length, int(i + box_filter - offset))
+                ]
             gripper_on = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper always on
@@ -289,6 +300,8 @@ class RawScene:
             if self.is_gripper_closed:
                 self.gripper_duration += 1
             # END
+
+            print("frame", i, "gripper_closed", self.is_gripper_closed)
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"
@@ -411,6 +424,10 @@ class RawScene:
                     if cur_distance > self.max_distance_grip:
                         self.max_distance_grip = cur_distance
                         self.imsaver.snap("max", left_image, replace=True)
+            
+            # === last touch
+            if self.first_touch != -1 and not self.is_gripper_closed:
+                self.imsaver.snap("last", left_image)
 
             # === base projection
             # left_image = draw_sequence(left_image, [(x, y, 2)])
@@ -548,7 +565,8 @@ class RawScene:
 
     # MV
     def draw_image(self, path):
-        plot = draw_sequence(self.imsaver.snapshots["grip"], self.points)
+        # use first image "grip", or last image "last" as canvas
+        plot = draw_sequence(self.imsaver.snapshots["last"], self.points)
         io.imsave(path, plot, quality=90)
 
         # grip image

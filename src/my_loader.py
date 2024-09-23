@@ -87,7 +87,6 @@ class DroidLoader:
                 break
 
             # skip when not closed
-            print("gripper closed", self.raw_scene.is_gripper_closed)
             if not self.raw_scene.is_gripper_closed:
                 continue
 

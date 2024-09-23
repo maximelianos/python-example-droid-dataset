@@ -6,12 +6,13 @@ import subprocess
 import shutil
 import argparse
 
-from src.process_imitation_flow import process_trajectory
-
 def main():
+    # ====== PREPARATIONAL PART ======
+
     parser = argparse.ArgumentParser(
         "Plot trajectory for all downloaded episodes"
     )
+    parser.add_argument('--visualize', action='store_true', help="show rerun visualisation")
     parser.add_argument('--debug', action='store_true', help="stop on debug points")
     args = parser.parse_args()
 
@@ -33,8 +34,8 @@ def main():
             # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
             # .    .         .     .       date       episode
             episodes.append(episode)
-            print(f"{len(episodes): >4}", episode)
-    # episodes = episodes[:50]
+            print(f"{len(episodes)-1: >4}", episode)
+    episodes = episodes[40:]
 
     exclude = [
         "2023-04-27/Thu_Apr_27_22:35:22_2023", # failed download?
@@ -75,8 +76,12 @@ def main():
     # diff_processor = Difference()
     # flow_processor = FlowProcessor()
 
+
+
+
     for episode in episodes:
-        episode = episodes[2]
+        # ====== PREPARATIONAL PART ======
+
         print("episode:", episode)
 
         # uuid of episode
@@ -95,20 +100,25 @@ def main():
 
 
 
+
+        # ====== ACTUAL PROCESSING ======
+
         plot_path = Path("plot") / (date_str + ".jpg")
         print("plot path:", plot_path)
+        Path("data/trajectory.npy").unlink(missing_ok=True)
 
         # === SAM
+        from src.process_imitation_flow import process_trajectory
         process_trajectory(episode)
 
         # === trajectory plot
         command = ["python", "-m", "src.raw", "--scene", str(episode), "--plot", plot_path]
-        if args.debug:
+        if args.visualize:
             command.append("--visualize")
         print(f'Running: "{" ".join(map(str, command))}"')
         p: subprocess.CompletedProcess = subprocess.run(command)
 
-        # === example image
+        # === first frame
         # data_dir = Path("data")
         # # file_list = sorted((data_dir / "frames").glob("center*jpg"))
         # plot_path = Path("plot/f1") / (date_str + ".jpg")
@@ -126,6 +136,10 @@ def main():
         # plot_path = Path("plot/flow") / (uuid + ".jpg")
         # plot_path.parent.mkdir(parents=True, exist_ok=True)
         # shutil.copy2("data/overlay.jpg", plot_path)
+
+
+
+        # ====== SAVE ======
 
         # read json of completed episode
         with open("data/single_log.json", "r") as f:
@@ -146,7 +160,7 @@ def main():
         with open("data/complete_log.json", "w") as f:
             json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-        input("continue")
+        #input("continue")
 
 if __name__ == "__main__":
     main()
