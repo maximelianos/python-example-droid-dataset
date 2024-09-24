@@ -35,7 +35,7 @@ def main():
             # .    .         .     .       date       episode
             episodes.append(episode)
             print(f"{len(episodes)-1: >4}", episode)
-    episodes = episodes[40:]
+    episodes = episodes[91:]
 
     exclude = [
         "2023-04-27/Thu_Apr_27_22:35:22_2023", # failed download?

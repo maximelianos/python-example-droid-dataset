@@ -45,6 +45,7 @@ def main():
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
     uuid_to_path = {episode[1]: episode[2] for episode in existing_episodes}
+    uuid_to_ind = {existing_episodes[i][1]: i for i in range(len(existing_episodes))}
 
     # remove non-existing episodes
     intersection = {}
@@ -57,11 +58,17 @@ def main():
 
 
     # === filter based on annotation
+    # ordered by increasing date
     selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"language_instruction1": ...}}
-    for uuid in annotations:
+    no_annotation_cnt = 0
+    for _date, uuid, _path in existing_episodes:
         is_good = True
         to_save = False
         
+        if uuid not in annotations:
+            no_annotation_cnt += 1
+            continue
+
         for annot_key in annotations[uuid]:
             annot = annotations[uuid][annot_key].lower() # very important!
             regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
@@ -82,9 +89,12 @@ def main():
                 to_save = True
         if is_good and to_save:
             selected_episodes[uuid] = annotations[uuid][save_key]
+    print("no annotations:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
-    selected_list = sorted(list(selected_episodes.keys()))
-    selected_list = selected_list[:50] # select 200 episodes uniformly
+    selected_list = list(selected_episodes.keys())
+    selected_list = selected_list[810:1000]
+    # for i, uuid in enumerate(selected_list):
+    #     print(i, uuid_to_ind[uuid])
     selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     with open("data/selected_annotations.json", "w") as f:
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)

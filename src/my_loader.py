@@ -73,8 +73,6 @@ class DroidLoader:
         # === read all frames into memory...
 
         for i in range(1, self.raw_scene.trajectory_length):
-            print("frame", i)
-
             # limit trajectory length
             if len(self.rgb) >= 70:
                 break
