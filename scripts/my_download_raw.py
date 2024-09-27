@@ -92,10 +92,13 @@ def main():
     print("no annotations:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
-    selected_list = selected_list[810:1000]
+    #selected_list = selected_list[455:456] # 810:1000
+
     # for i, uuid in enumerate(selected_list):
     #     print(i, uuid_to_ind[uuid])
-    selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
+
+    #selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
+    selected_annotations = [[i, uuid, annotations[uuid]] for i, uuid in enumerate(selected_list)]
     with open("data/selected_annotations.json", "w") as f:
         json.dump(selected_annotations, f, indent=4, ensure_ascii=False)
     print("to download:", len(selected_list))

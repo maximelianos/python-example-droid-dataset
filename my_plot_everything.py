@@ -13,7 +13,6 @@ def main():
         "Plot trajectory for all downloaded episodes"
     )
     parser.add_argument('--visualize', action='store_true', help="show rerun visualisation")
-    parser.add_argument('--debug', action='store_true', help="stop on debug points")
     args = parser.parse_args()
 
     root_dir = Path(__file__).parent
@@ -35,21 +34,7 @@ def main():
             # .    .         .     .       date       episode
             episodes.append(episode)
             print(f"{len(episodes)-1: >4}", episode)
-    episodes = episodes[91:]
-
-    exclude = [
-        "2023-04-27/Thu_Apr_27_22:35:22_2023", # failed download?
-        "2023-04-27/Thu_Apr_27_22:41:17_2023",
-        "2023-04-27/Thu_Apr_27_23:07:13_2023",
-        "2023-04-27/Thu_Apr_27_23:13:21_2023"
-    ]
-    
-    for ex_ep in exclude:
-        for i in range(len(episodes)):
-            if ex_ep in str(episodes[i]):
-                episodes.pop(i)
-                print("removed", ex_ep)
-                break
+    episodes = episodes[:1]
 
     print("episodes:", len(episodes))
     input("continue...")
@@ -71,11 +56,6 @@ def main():
     if Path("data/complete_log.json").exists():
         with open("data/complete_log.json", "r") as f:
             complete_log = json.load(f)
-
-    # MV
-    # diff_processor = Difference()
-    # flow_processor = FlowProcessor()
-
 
 
 
@@ -124,18 +104,6 @@ def main():
         # plot_path = Path("plot/f1") / (date_str + ".jpg")
         # plot_path.parent.mkdir(parents=True, exist_ok=True)
         # shutil.copy2("data/frames/first_image.jpg", plot_path)
-        
-        # === difference
-        # diff_processor.process()
-        # Path("plotdiff").mkdir(parents=True, exist_ok=True)
-        # plot_path = Path("plotdiff") / (uuid + ".jpg")
-        # shutil.copy2("data/frames/result_overlay.jpg", plot_path)
-
-        # === flow
-        # flow_processor.process()
-        # plot_path = Path("plot/flow") / (uuid + ".jpg")
-        # plot_path.parent.mkdir(parents=True, exist_ok=True)
-        # shutil.copy2("data/overlay.jpg", plot_path)
 
 
 
@@ -160,7 +128,8 @@ def main():
         with open("data/complete_log.json", "w") as f:
             json.dump(complete_log, f, indent=4, ensure_ascii=False)
 
-        #input("continue")
+        if args.visualize:
+            input("continue")
 
 if __name__ == "__main__":
     main()
