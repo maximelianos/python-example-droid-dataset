@@ -85,7 +85,6 @@ def main():
 
         plot_path = Path("plot") / (date_str + ".jpg")
         print("plot path:", plot_path)
-        Path("data/trajectory.npy").unlink(missing_ok=True)
 
         # === SAM
         from src.process_imitation_flow import process_trajectory

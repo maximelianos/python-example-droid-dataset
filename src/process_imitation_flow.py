@@ -14,21 +14,16 @@ import casino
 #from DITTO.data import Hands23Dataset, get_all_runs
 #from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
 # from DITTO.tracking_3D import Step3DMethod
-
-
-
 from DITTO.trajectory import Trajectory
-
 from .my_loader import DroidLoader
-from pathlib import Path
 
 def process_trajectory(scene):
     # src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-07/Fri_Apr__7_13_32_40_2023
     # scene =                          "data/droid_raw/1.0.1/success/2023-03-08/Wed_Mar__8_16_45_10_2023"
+    Path("data/trajectory.npy").unlink(missing_ok=True)
     loader = DroidLoader(Path(scene))
     loader.read_trajectory()
     loaders: List = [loader]
-
 
 
     num_frames = -1 # TIME_STEPS  # number of frames through which we compute flow
@@ -45,7 +40,6 @@ def process_trajectory(scene):
     full_trajectory[1:n] = trajectory
     full_trajectory[0] = trajectory[0]
     trajectory = full_trajectory
-
 
 
     with open("data/trajectory.npy", "wb") as f:

@@ -20,11 +20,28 @@ from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
+def scene_to_date(scene: str):
+    # uuid of episode
+    json_file = list(Path(episode).glob("*json"))[0]
+    with open(json_file, "r") as f:
+        metadata = json.load(f)
+    uuid = metadata["uuid"]
+
+    # extract date
+    regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
+    date_str = re.findall(regex, uuid)[0]
+    date = dt.datetime.strptime(date_str, "%Y-%m-%d-%Hh-%Mm-%Ss")
+
+    # organisation
+    org = uuid.split("+")[0]
+
+    return date
+
 class DroidLoader:
     def __init__(self, scene: str):
         self.i: int = 0
         self.image: np.array = {}
-        self.detection: DetectionResult = None
+        self.detection: DetectionResult = DetectionResult()
         self.is_gripper_closed = False
 
         self.rgb = []
@@ -40,6 +57,16 @@ class DroidLoader:
         self.image = images["cameras/ext1/left"]
 
         # === detect objects
+        # check if detection was already performed
+        episode_date: str = scene_to_date(scene)
+        mask_path = Path("data/detection/" + episode_date + "_mask.npy")
+        mask_path.parent.mkdir(parents=True, exist_ok=True)
+        if mask_path.exists():
+            with open(mask_path, "rb") as f:
+                self.detection.mask = np.load(f)
+
+            return
+
         detector_id = "IDEA-Research/grounding-dino-base"
         segmenter_id = "facebook/sam-vit-base"
         processor = DetectionProcessor(detector_id, segmenter_id)
@@ -52,6 +79,8 @@ class DroidLoader:
         # plot_path = Path("data") / "frame.jpg"
         # cv2.imwrite(plot_path, cv2.cvtColor(image * 255, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
 
+        # detections: zero or one detection List[DetectionResult]
+        # DetectionResult: mask
         image_array, detections = processor.grounded_segmentation(
             image=PIL.Image.fromarray(self.image),
             labels=labels,
@@ -67,7 +96,11 @@ class DroidLoader:
         if detections:
             self.detection = detections[0]
         else:
-            self.detection = None
+            self.detection.mask = np.zeros(())
+        
+        # cache mask, load cache in same function
+        with open(mask_path, "wb") as f:
+            np.save(f, self.detection.mask)
 
     def read_trajectory(self):
         # === read all frames into memory...
@@ -121,6 +154,68 @@ class DroidLoader:
     def get_bbox(self, demo_start: int, object_key: str):
         box = self.detection.box
         return [box.xmin, box.xmax, box.ymin, box.ymax]
+    
+
+
+    def track(self) -> np.ndarray:
+        # Copied from imitation_flow_nick.ipynb
+        import sys
+        from pathlib import Path
+        from typing import List, Dict
+
+        import ipywidgets
+        import numpy as np
+        import open3d as o3d
+        from tqdm import tqdm
+        import matplotlib.pyplot as plt
+
+        import casino
+        #from DITTO.data import Hands23Dataset, get_all_runs
+        #from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
+        # from DITTO.tracking_3D import Step3DMethod
+        from DITTO.trajectory import Trajectory
+
+        # check if trajectory was already computed
+        episode_date: str = scene_to_date(scene)
+        trajectory_path = Path("data/trajectory/" + episode_date + "_traj.npy")
+        trajectory_path.parent.mkdir(parents=True, exist_ok=True)
+        if trajectory_path.exists():
+            with open(mask_path, "rb") as f:
+                self.trajectory = np.load(f)
+
+            return self.trajectory
+
+        # src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-07/Fri_Apr__7_13_32_40_2023
+        # scene =                          "data/droid_raw/1.0.1/success/2023-03-08/Wed_Mar__8_16_45_10_2023"
+        Path("data/trajectory.npy").unlink(missing_ok=True)
+        self.read_trajectory()
+        loaders: List = [self]
+
+
+        num_frames = -1 # TIME_STEPS  # number of frames through which we compute flow
+        trajectories: Dict[int, Trajectory] = {}
+        for demonstration_index in tqdm(range(len(loaders))):
+            trajectories[demonstration_index] = Trajectory.from_hands23(loaders[demonstration_index], n_frames=num_frames)
+
+        # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
+        trajectory = trajectories[0].trajectory_2D
+        # we need n points, not n - 1
+        start, stop = self.get_start_stop()
+        n = stop - start + 1
+        full_trajectory = np.zeros((n, 1, 2))
+        full_trajectory[1:n] = trajectory
+        full_trajectory[0] = trajectory[0]
+        trajectory = full_trajectory
+
+
+        with open("data/trajectory.npy", "wb") as f:
+            np.save(f, trajectory)
+
+        with open(trajectory_path, "wb") as f:
+            np.save(f, trajectory)
+        
+        self.trajectory = trajectory
+        return trajectory
 
 
 def main():
@@ -145,6 +240,8 @@ def main():
     print("mask", end=" ")
     imginfo(loader.get_object_mask(start))
     print("bbox", loader.get_bbox(start, "hand_bbox"))
+    print("trajectory", end=" ")
+    imginfo(loader.track())
 
     # Interface
     # loader.get_start_stop() -> [int, int]

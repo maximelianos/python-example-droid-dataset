@@ -277,6 +277,8 @@ class DetectionProcessor:
         detector_id: Optional[str] = None,
         segmenter_id: Optional[str] = None
     ) -> Tuple[np.ndarray, List[DetectionResult]]:
+        # mask (h, w) [0, 255]
+
         if isinstance(image, str):
             image = load_image(image)
 
@@ -284,48 +286,3 @@ class DetectionProcessor:
         detections = self.segment(image, detections, polygon_refinement)
 
         return np.array(image), detections
-
-# === INFERENCE ALL IMAGES
-
-def process_all():
-    # DO NOT USE
-    detector_id = "IDEA-Research/grounding-dino-base"
-    segmenter_id = "facebook/sam-vit-base"
-    processor = DetectionProcessor(detector_id, segmenter_id)
-
-    file_list = sorted(Path("plot/f1").glob("*jpg"))
-    for image_url in file_list:
-        # MV debug
-        image_url = file_list[1]
-
-        date_str: str = image_url.stem
-        image_url = str(image_url)
-        print(image_url)
-
-        labels = ["a pen."]
-        threshold = 0.3
-
-        image = cv2.imread(image_url)[:,:,::-1].astype(np.float32) / 255
-        # MV debug
-        # plot_path = Path("data") / "frame.jpg"
-        # cv2.imwrite(plot_path, cv2.cvtColor(image * 255, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 100])
-
-        
-
-        image_array, detections = processor.grounded_segmentation(
-            image=image_url,
-            labels=labels,
-            threshold=threshold,
-            polygon_refinement=True,
-        )
-
-        plot_detections(image_array, detections, "data/segmentation.jpg")
-
-        plot_path = Path("plot/segment") / (date_str + ".jpg")
-        plot_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2("data/segmentation.jpg", plot_path)
-
-        input("continue")
-
-if __name__ == "__main__":
-    process_all()
