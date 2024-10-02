@@ -16,11 +16,30 @@ import PIL
 from .raw import RawScene
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
+# Copied from imitation_flow_nick.ipynb
+import sys
+from pathlib import Path
+from typing import List, Dict
+
+import ipywidgets
+import numpy as np
+import open3d as o3d
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+
+import casino
+#from DITTO.data import Hands23Dataset, get_all_runs
+#from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
+# from DITTO.tracking_3D import Step3DMethod
+from DITTO.trajectory import Trajectory
+
 
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
 def scene_to_date(scene: str):
+    # scene: path to scene like data/droid_raw/1.0.1/success/<date>/<time>
+
     # uuid of episode
     json_file = list(Path(episode).glob("*json"))[0]
     with open(json_file, "r") as f:
@@ -67,6 +86,7 @@ class DroidLoader:
 
             return
 
+        # === run detection only if no cache
         detector_id = "IDEA-Research/grounding-dino-base"
         segmenter_id = "facebook/sam-vit-base"
         processor = DetectionProcessor(detector_id, segmenter_id)
@@ -98,7 +118,7 @@ class DroidLoader:
         else:
             self.detection.mask = np.zeros(())
         
-        # cache mask, load cache in same function
+        # cache mask
         with open(mask_path, "wb") as f:
             np.save(f, self.detection.mask)
 
@@ -159,23 +179,8 @@ class DroidLoader:
 
     def track(self) -> np.ndarray:
         # Copied from imitation_flow_nick.ipynb
-        import sys
-        from pathlib import Path
-        from typing import List, Dict
 
-        import ipywidgets
-        import numpy as np
-        import open3d as o3d
-        from tqdm import tqdm
-        import matplotlib.pyplot as plt
-
-        import casino
-        #from DITTO.data import Hands23Dataset, get_all_runs
-        #from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
-        # from DITTO.tracking_3D import Step3DMethod
-        from DITTO.trajectory import Trajectory
-
-        # check if trajectory was already computed
+        # MV check if trajectory was already computed
         episode_date: str = scene_to_date(scene)
         trajectory_path = Path("data/trajectory/" + episode_date + "_traj.npy")
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
