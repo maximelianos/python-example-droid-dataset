@@ -46,6 +46,18 @@ class DetectionResult:
                                    ymin=detection_dict['box']['ymin'],
                                    xmax=detection_dict['box']['xmax'],
                                    ymax=detection_dict['box']['ymax']))
+    
+    def to_dict(self) -> Dict:
+        return {
+            'score': self.score,
+            'label': self.label,
+            'box': {
+                'xmin': self.box.xmin,
+                'ymin': self.box.ymin,
+                'xmax': self.box.xmax,
+                'ymax': self.box.ymax
+            }
+        }
 
 # === PLOT UTILS
 

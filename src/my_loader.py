@@ -12,6 +12,8 @@ import h5py
 import json
 import argparse
 import PIL
+import re
+import datetime as dt
 
 from .raw import RawScene
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -41,7 +43,7 @@ def scene_to_date(scene: str):
     # scene: path to scene like data/droid_raw/1.0.1/success/<date>/<time>
 
     # uuid of episode
-    json_file = list(Path(episode).glob("*json"))[0]
+    json_file = list(Path(scene).glob("*json"))[0]
     with open(json_file, "r") as f:
         metadata = json.load(f)
     uuid = metadata["uuid"]
@@ -49,18 +51,19 @@ def scene_to_date(scene: str):
     # extract date
     regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
     date_str = re.findall(regex, uuid)[0]
-    date = dt.datetime.strptime(date_str, "%Y-%m-%d-%Hh-%Mm-%Ss")
+    #date = dt.datetime.strptime(date_str, "%Y-%m-%d-%Hh-%Mm-%Ss")
 
     # organisation
-    org = uuid.split("+")[0]
+    #org = uuid.split("+")[0]
 
-    return date
+    return date_str
 
 class DroidLoader:
     def __init__(self, scene: str):
+        self.scene = scene
         self.i: int = 0
         self.image: np.array = {}
-        self.detection: DetectionResult = DetectionResult()
+        self.detection: DetectionResult = DetectionResult(None, None, None)
         self.is_gripper_closed = False
 
         self.rgb = []
@@ -80,7 +83,13 @@ class DroidLoader:
         episode_date: str = scene_to_date(scene)
         mask_path = Path("data/detection/" + episode_date + "_mask.npy")
         mask_path.parent.mkdir(parents=True, exist_ok=True)
+        box_path = Path("data/detection/" + episode_date + "_box.json")
         if mask_path.exists():
+            # load box
+            with open(box_path, "r") as f:
+                self.detection = DetectionResult.from_dict(json.load(f))
+            
+            # load mask
             with open(mask_path, "rb") as f:
                 self.detection.mask = np.load(f)
 
@@ -117,6 +126,10 @@ class DroidLoader:
             self.detection = detections[0]
         else:
             self.detection.mask = np.zeros(())
+        
+        # cache box
+        with open(box_path, "w") as f:
+            json.dump(self.detection.to_dict(), f, indent=4, ensure_ascii=False)
         
         # cache mask
         with open(mask_path, "wb") as f:
@@ -181,11 +194,11 @@ class DroidLoader:
         # Copied from imitation_flow_nick.ipynb
 
         # MV check if trajectory was already computed
-        episode_date: str = scene_to_date(scene)
+        episode_date: str = scene_to_date(self.scene)
         trajectory_path = Path("data/trajectory/" + episode_date + "_traj.npy")
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
         if trajectory_path.exists():
-            with open(mask_path, "rb") as f:
+            with open(trajectory_path, "rb") as f:
                 self.trajectory = np.load(f)
 
             return self.trajectory
