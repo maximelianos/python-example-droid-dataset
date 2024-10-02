@@ -5,6 +5,7 @@ import datetime as dt
 import subprocess
 import shutil
 import argparse
+import numpy as np
 
 def main():
     # ====== PREPARATIONAL PART ======
@@ -34,7 +35,6 @@ def main():
             # .    .         .     .       date       episode
             episodes.append(episode)
             print(f"{len(episodes)-1: >4}", episode)
-    episodes = episodes[:1]
 
     print("episodes:", len(episodes))
     input("continue...")
@@ -87,8 +87,14 @@ def main():
         print("plot path:", plot_path)
 
         # === SAM
+        Path("data/trajectory.npy").unlink(missing_ok=True)
+
         from src.process_imitation_flow import process_trajectory
-        process_trajectory(episode)
+        from src.my_loader import DroidLoader
+        loader = DroidLoader(episode)
+        trajectory: np.ndarray = loader.track()
+        with open("data/trajectory.npy", "wb") as f:
+            np.save(f, trajectory)
 
         # === trajectory plot
         command = ["python", "-m", "src.raw", "--scene", str(episode), "--plot", plot_path]

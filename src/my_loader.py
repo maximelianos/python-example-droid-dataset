@@ -205,7 +205,6 @@ class DroidLoader:
 
         # src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-07/Fri_Apr__7_13_32_40_2023
         # scene =                          "data/droid_raw/1.0.1/success/2023-03-08/Wed_Mar__8_16_45_10_2023"
-        Path("data/trajectory.npy").unlink(missing_ok=True)
         self.read_trajectory()
         loaders: List = [self]
 
@@ -224,10 +223,6 @@ class DroidLoader:
         full_trajectory[1:n] = trajectory
         full_trajectory[0] = trajectory[0]
         trajectory = full_trajectory
-
-
-        with open("data/trajectory.npy", "wb") as f:
-            np.save(f, trajectory)
 
         with open(trajectory_path, "wb") as f:
             np.save(f, trajectory)
