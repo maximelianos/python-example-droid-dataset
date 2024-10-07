@@ -15,7 +15,7 @@ import PIL
 import re
 import datetime as dt
 
-from .raw import RawScene
+from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
 # Copied from imitation_flow_nick.ipynb
@@ -38,25 +38,6 @@ from DITTO.trajectory import Trajectory
 
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
-
-def scene_to_date(scene: str):
-    # scene: path to scene like data/droid_raw/1.0.1/success/<date>/<time>
-
-    # uuid of episode
-    json_file = list(Path(scene).glob("*json"))[0]
-    with open(json_file, "r") as f:
-        metadata = json.load(f)
-    uuid = metadata["uuid"]
-
-    # extract date
-    regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
-    date_str = re.findall(regex, uuid)[0]
-    #date = dt.datetime.strptime(date_str, "%Y-%m-%d-%Hh-%Mm-%Ss")
-
-    # organisation
-    #org = uuid.split("+")[0]
-
-    return date_str
 
 class DroidLoader:
     def __init__(self, scene: str):

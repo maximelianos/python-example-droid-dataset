@@ -89,6 +89,17 @@ $ sudo apt install texlive-full
 $ sudo apt install texstudio
 </pre>
 
+<h3>bashrc</h3>
+
+<pre>
+- Display only last folder in terminal
+$ echo $PS1
+open ~/.bashrc, change \w to \W
+PS1="${debian_chroot:+($debian_chroot)}\u@\h:\W\$ "
+See "Bash Prompt HOWTO"
+</pre>
+
+
 <h2>References</h2>
 <ul>
 </ul>
