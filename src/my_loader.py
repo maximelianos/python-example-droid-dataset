@@ -15,6 +15,8 @@ import PIL
 import re
 import datetime as dt
 
+import torch
+
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 
@@ -41,6 +43,10 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 
 class DroidLoader:
     def __init__(self, scene: str):
+        # cache of mask in data/detection/<date>_mask.npy,
+        # cache of box in data/detection/<date>_box.json,
+        # cache of trajectory in data/trajectory/<date>_traj.npy
+
         self.scene = scene
         self.i: int = 0
         self.image: np.array = {}
@@ -53,7 +59,7 @@ class DroidLoader:
 
         self.intrinsics = None
 
-        # === extract frames
+        # === read frames
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
         self.i += 1
@@ -65,7 +71,7 @@ class DroidLoader:
         mask_path = Path("data/detection/" + episode_date + "_mask.npy")
         mask_path.parent.mkdir(parents=True, exist_ok=True)
         box_path = Path("data/detection/" + episode_date + "_box.json")
-        if mask_path.exists():
+        if box_path.exists():
             # load box
             with open(box_path, "r") as f:
                 self.detection = DetectionResult.from_dict(json.load(f))
@@ -102,7 +108,7 @@ class DroidLoader:
         plot_path.parent.mkdir(parents=True, exist_ok=True)
         plot_detections(image_array, detections, str(plot_path))
 
-        # save detection in this class member variable
+        # === save detection in this class member variable
         if detections:
             self.detection = detections[0]
         else:
@@ -172,6 +178,7 @@ class DroidLoader:
 
 
     def track(self) -> np.ndarray:
+        # return trajectory [n, 1, 2]
         # Copied from imitation_flow_nick.ipynb
 
         # MV check if trajectory was already computed
@@ -210,6 +217,18 @@ class DroidLoader:
         
         self.trajectory = trajectory
         return trajectory
+
+
+class EpisodeList(torch.utils.data.Dataset):
+    def __init__(self):
+        # === read list of espisodes which was saved by dirlist.py
+        with open("data/manual_episodes.json", "r") as f:
+            self.episode_list = json.load(f)
+
+    def __getitem__(self, idx: int):
+        loader = DroidLoader()
+
+
 
 
 def main():

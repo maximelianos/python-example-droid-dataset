@@ -41,7 +41,7 @@ def main():
         annotations = json.load(f)
     print("episodes before cleaning:", len(annotations.keys()))
 
-    # MV existing episodes [date, uuid, path]
+    # === existing episodes [date, uuid, path]
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
     uuid_to_path = {episode[1]: episode[2] for episode in existing_episodes}
