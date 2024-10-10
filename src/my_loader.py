@@ -42,7 +42,7 @@ from DITTO.trajectory import Trajectory
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
 class DroidLoader:
-    def __init__(self, scene: str):
+    def __init__(self, scene: Path):
         # cache of mask in data/detection/<date>_mask.npy,
         # cache of box in data/detection/<date>_box.json,
         # cache of trajectory in data/trajectory/<date>_traj.npy
@@ -193,7 +193,6 @@ class DroidLoader:
 
         # src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-07/Fri_Apr__7_13_32_40_2023
         # scene =                          "data/droid_raw/1.0.1/success/2023-03-08/Wed_Mar__8_16_45_10_2023"
-        self.read_trajectory()
         loaders: List = [self]
 
 
@@ -216,17 +215,32 @@ class DroidLoader:
             np.save(f, trajectory)
         
         self.trajectory = trajectory
+
         return trajectory
 
 
 class EpisodeList(torch.utils.data.Dataset):
     def __init__(self):
         # === read list of espisodes which was saved by dirlist.py
+        from .my_episode_list import date_to_localpath
+
         with open("data/manual_episodes.json", "r") as f:
-            self.episode_list = json.load(f)
+            date_list = json.load(f)
+            self.path_list = [date_to_localpath[date] for date in date_list]
 
     def __getitem__(self, idx: int):
-        loader = DroidLoader()
+        loader = DroidLoader(Path(self.path_list[idx]))
+        loader.read_trajectory()
+        loader.track()
+        images = [torch.from_numpy(image) for image in loader.rgb] # list[(h, w, c)]
+        images = [tensor.permute(2, 0, 1) for tensor in images] # list[(c, h, w)]
+        images = torch.stack(images) # (n, c, h, w)
+        sample = {
+            "images": images,
+            "robot_state": loader.trajectory[:, 0, :] # (n, 2)
+        }
+        return sample
+
 
 
 
@@ -255,6 +269,12 @@ def main():
     print("bbox", loader.get_bbox(start, "hand_bbox"))
     print("trajectory", end=" ")
     imginfo(loader.track())
+
+    eplist = EpisodeList()
+    sample = eplist[0]
+    print("sample")
+    imginfo(sample["images"])
+    imginfo(sample["robot_state"])
 
     # Interface
     # loader.get_start_stop() -> [int, int]

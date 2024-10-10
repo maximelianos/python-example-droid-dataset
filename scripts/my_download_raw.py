@@ -45,7 +45,6 @@ def main():
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
     uuid_to_path = {episode[1]: episode[2] for episode in existing_episodes}
-    uuid_to_ind = {existing_episodes[i][1]: i for i in range(len(existing_episodes))}
 
     # remove non-existing episodes
     intersection = {}
