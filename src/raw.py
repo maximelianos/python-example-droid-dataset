@@ -59,6 +59,19 @@ def draw_sequence(image: np.array, points: list):
 
     return canvas
 
+def scene_to_date(scene: str):
+    # uuid of episode
+    json_file = list(Path(scene).glob("*json"))[0]
+    with open(json_file, "r") as f:
+        metadata = json.load(f)
+    uuid = metadata["uuid"]
+
+    # extract date
+    regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
+    import re
+    date_str = re.findall(regex, uuid)[0]
+
+    return date_str
 
 class StereoCamera:
     left_images: list[np.ndarray]
@@ -391,7 +404,7 @@ class RawScene:
             left_image, right_image, depth_image = frames
 
             # MV
-            left_image = left_image[:, :, ::-1]
+            left_image = left_image[:, :, ::-1].copy()
             imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
             # save frame to queue
