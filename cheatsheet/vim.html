@@ -1,11 +1,8 @@
 <!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html lang="ru">
 <head>
-<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">
-<style>
-    body {
-      font-size: 1.25em;
-    }
+    <meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">
+    <link href="common.css" rel="stylesheet" type="text/css">
 </style>
 
 </head>
@@ -79,10 +76,14 @@ vim$ ctrl+pgd: switch browser-like tab
 File browser:
       ctrl+h, ctrl+l
       shift+h, shift+l
+      space+bd  # close current buffer
 Searching:
-      select word: viw
+      grepping word under cursor: viw+space+sw
       *, n, N
       space+fg
+Editing:
+      copy to clipboard: "*y (* register, yank)
+      paste from clipboard: "*p (paste)
 </pre>
 
 <h2>References</h2>

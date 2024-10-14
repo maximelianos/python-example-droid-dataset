@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+  <meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+  <link href="common.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+
+<h2>Octagon</h2>
+
+<h3>Command line shortcuts</h3>
+<pre>
+~/.bashrc
+alias c='conda activate rerun' 
+alias j='cd $HOME/work && conda activate rerun && jupyter notebook'
+</pre>
+
+<h3>Rerun-repo installation</h3>
+<pre>
+<a href="https://github.com/rerun-io/python-example-droid-dataset/tree/master">Repo link</a>
+
+Create new Conda env!
+$ conda create -n rerun python=3.11 scikit-image=0.19 pandas matplotlib jupyter notebook
+$ pip install gsutil
+$ pip install --force-reinstall charset-normalizer==3.1.0
+(-) $ conda install pytorch  # must be gpu version: import torch; torch.cuda.is_available()
+$ pip install torch torchvision transformers
+
+$ git clone https://github.com/maximelianos/python-example-droid-dataset.git
+$ git checkout dev
+Install rerun
+
+Download text descriptions
+  $ mkdir ../droid_raw
+  $ gsutil -m rsync -r -x "(.*npy)|(.*mp4)|(.*svo)|(.*h5)|(failure)|(timestamp)" gs://gresearch/robotics/droid_raw/1.0.1/  droid_raw
+  $ python scripts/process01.py --data ../droid_raw/
+
+Filter description by regex and download videos
+  $ python scripts/my_download_raw.py --debug
+</pre>
+
+<h3>Visualize</h3>
+<pre>
+Episode index to episode localpath
+$ python my_plot_everything.py
+
+Visualize an episode
+$ src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_16_51_12_2023  # OR
+$ python -m src.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
+
+Statistics for all episodes in process04.ipynb
+</pre>
+
+<h2>References</h2>
+<ul>
+</ul>
+
+</body>
+</html>

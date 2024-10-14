@@ -1,6 +1,8 @@
 <!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html lang="ru"><head>
-<meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+<html lang="ru">
+<head>
+    <meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+    <link href="common.css" rel="stylesheet" type="text/css">
 </head>
 <body>
 
@@ -11,23 +13,24 @@
 wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_23.1.0-1-Linux-x86_64.sh
 conda config --set auto_activate_base False
 
-=== create environment
+=== create environment + basic packages
 conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow scikit-image scikit-learn tqdm jupyter notebook matplotlib seaborn
 
+=== heavy packages
 pytorch torchvision opencv
-
-terminaltables imgaug
-
-conda-forge tensorboard
+conda-forge tensorboard / log learning progress
 torchsummary / conda-forge pytorch-model-summary
 
-# databases
+==- Information Retrieval, Bast
 flake8 mypy pytorch-cpu
+</pre>
 
-# lmbcluster
-conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow scikit-image scikit-learn tqdm jupyter notebook matplotlib seaborn pytorch torchvision opencv
-
-conda create -n test python=3.11
+<h3>Conda env management</h3>
+<pre>
+      $ conda env list
+      $ conda env remove --name torch
+      $ pip show gsutil
+      $ pip install gsutil==  # find possible versions
 </pre>
 
 <h2>References</h2>
