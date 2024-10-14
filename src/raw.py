@@ -312,9 +312,9 @@ class RawScene:
 
             if self.is_gripper_closed:
                 self.gripper_duration += 1
-            # END
+            # print("frame", i, "gripper_closed", self.is_gripper_closed)
 
-            print("frame", i, "gripper_closed", self.is_gripper_closed)
+            # END
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"

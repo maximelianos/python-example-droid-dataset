@@ -49,12 +49,12 @@ class DroidLoader:
 
         self.scene = scene
         self.i: int = 0
-        self.image: np.array = {}
+        self.image: np.ndarray = None
         self.detection: DetectionResult = DetectionResult(None, None, None)
         self.is_gripper_closed = False
 
         self.rgb = []
-        self.start = -1
+        self.start = 0
         self.stop = -1
 
         self.intrinsics = None
@@ -145,17 +145,16 @@ class DroidLoader:
             #if (len(self.rgb) + i) % 4 != 0:
             #    continue
 
-            if self.start == -1:
-                self.start = 0
-            self.stop = len(self.rgb) - 1
+            self.stop = len(self.rgb)
 
             self.rgb.append(images["cameras/ext1/left"])
 
     def get_start_stop(self) -> tuple[int, int]:
-        return (0, self.stop - self.start)
+        # last index not included
+        return (0, self.stop)  
 
     def get_timesteps(self, n_frames: int) -> list[int]:
-        return list(range(0, self.stop - self.start))
+        return list(range(0, self.stop))
 
     def get_rgb(self, timestamp: int) -> np.ndarray:
         return self.rgb[timestamp]
@@ -203,13 +202,17 @@ class DroidLoader:
 
         # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
         trajectory = trajectories[0].trajectory_2D
+        print("trajectory shape", end=" ")
+        imginfo(Trajectory)
+
         # we need n points, not n - 1
-        start, stop = self.get_start_stop()
-        n = stop - start + 1
-        full_trajectory = np.zeros((n, 1, 2))
-        full_trajectory[1:n] = trajectory
-        full_trajectory[0] = trajectory[0]
-        trajectory = full_trajectory
+        
+        # start, stop = self.get_start_stop() 
+        # n = stop - start
+        # full_trajectory = np.zeros((n, 1, 2))
+        # full_trajectory[1:n] = trajectory
+        # full_trajectory[0] = trajectory[0]
+        # trajectory = full_trajectory
 
         with open(trajectory_path, "wb") as f:
             np.save(f, trajectory)
@@ -246,7 +249,7 @@ class EpisodeList(torch.utils.data.Dataset):
 
 
 def main():
-    # === parse arguments
+    # === Test DroidLoader
     parser = argparse.ArgumentParser(
         description="Visualizes the DROID dataset using Rerun."
     )
@@ -270,6 +273,7 @@ def main():
     print("trajectory", end=" ")
     imginfo(loader.track())
 
+    # === Test EpisodeList
     eplist = EpisodeList()
     sample = eplist[0]
     print("sample")
