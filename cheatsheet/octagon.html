@@ -14,6 +14,12 @@ alias c='conda activate rerun'
 alias j='cd $HOME/work && conda activate rerun && jupyter notebook'
 </pre>
 
+<h3>VSCode fixing</h3>
+<pre>
+- ctrl+shift+p - command platte - color theme
+- ctrl+d ctrl+shift+f - global search
+</pre>
+
 <h3>Rerun-repo installation</h3>
 <pre>
 <a href="https://github.com/rerun-io/python-example-droid-dataset/tree/master">Repo link</a>
@@ -49,6 +55,64 @@ $ python -m src.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/
 
 Statistics for all episodes in process04.ipynb
 </pre>
+
+<h3>DITTO</h3>
+
+<h4>DITTO Setup</h4>
+<pre>
+Setup DITTO environment
+# nick environment
+  $ conda create -n imitating_videos python=3.9
+  $ cn
+  $ pip install torch torchvision transformers
+  $ pip install -r requirements.txt
+  conda install -c conda-forge libstdcxx-ng
+  pip install -e .
+
+# alias
+  alias cn='conda activate imitating_videos'
+  alias jn='conda activate imitating_videos && cd $HOME/octagon && jupyter notebook'
+
+# install FlowControl
+  $ pip install ruamel.yaml
+  $ pip install git+https://github.com/facebookresearch/segment-anything.git
+
+# install rerun
+  $ conda install scikit-image=0.19 pandas matplotlib jupyter notebook
+  $ pip install gsutil
+  $ pip install -r requirements.txt
+  $ pip uninstall opencv-python
+  $ pip install opencv-python-headless
+  $ pip uninstall pyqt5
+  $ conda install fastai::opencv-python-headless 
+</pre>
+
+<pre>
+Python 3.8: some support for type annotation
+Python 3.9: more support
+Python 3.10: even more support
+OpenCV is not working with python 3.9
+</pre>
+
+<h4>Run DITTO</h4>
+<pre>
+$ export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
+Open notebooks/imitation_flow_nick.ipynb
+</pre>
+
+<h4>Use DITTO</h4>
+<pre>
+Take notebook as base: notebooks/imitation_flow_nick.ipynb
+Data loading: DITTO.trajectory - Trajectory - from_hands23
+Implement my own class with methods: get_timestamps, get_rgb, get_object_mask
+Track object with Trajectory.trajectory_2D
+</pre>
+
+<h3>Prepare sheets</h3>
+<p>skimage: read, scale, crop, overlay with broadcasting, draw a point<br>
+playing with sift from OpenCV</p>
+
+
 
 <h2>References</h2>
 <ul>

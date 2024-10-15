@@ -1,5 +1,6 @@
 # Detect and segment first frame,
-# return frames during grip
+# return frames during grip.
+# Pytorch dataloader class.
 
 import numpy as np
 from pathlib import Path
@@ -180,7 +181,7 @@ class DroidLoader:
         # return trajectory [n, 1, 2]
         # Copied from imitation_flow_nick.ipynb
 
-        # MV check if trajectory was already computed
+        # === check if trajectory was already computed
         episode_date: str = scene_to_date(self.scene)
         trajectory_path = Path("data/trajectory/" + episode_date + "_traj.npy")
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
@@ -190,11 +191,8 @@ class DroidLoader:
 
             return self.trajectory
 
-        # src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-04-07/Fri_Apr__7_13_32_40_2023
-        # scene =                          "data/droid_raw/1.0.1/success/2023-03-08/Wed_Mar__8_16_45_10_2023"
+        # === compute trajectory
         loaders: List = [self]
-
-
         num_frames = -1 # TIME_STEPS  # number of frames through which we compute flow
         trajectories: Dict[int, Trajectory] = {}
         for demonstration_index in tqdm(range(len(loaders))):
@@ -204,6 +202,8 @@ class DroidLoader:
         trajectory = trajectories[0].trajectory_2D
         print("trajectory shape", end=" ")
         imginfo(Trajectory)
+        input("debug now!")
+
 
         # we need n points, not n - 1
         
@@ -215,8 +215,7 @@ class DroidLoader:
         # trajectory = full_trajectory
 
         with open(trajectory_path, "wb") as f:
-            np.save(f, trajectory)
-        
+            np.save(f, trajectory) 
         self.trajectory = trajectory
 
         return trajectory
@@ -254,13 +253,19 @@ def main():
         description="Visualizes the DROID dataset using Rerun."
     )
 
-    parser.add_argument("--scene", required=True, type=Path)
-    parser.add_argument('--visualize', action='store_true')
+    parser.add_argument("--scene", required=False, type=Path)
     args = parser.parse_args()
 
-    loader = DroidLoader(args.scene)
+    eplist = EpisodeList()
+    cur_scene: Path
+    if args.scene:
+        cur_scene = args.scene
+    else:
+        cur_scene = Path(eplist.path_list[0])
+
+    loader = DroidLoader(cur_scene)
     loader.read_trajectory()
-    start, stop = loader.get_start_stop()
+    start, _ = loader.get_start_stop()
     print("start, stop", loader.get_start_stop())
     print("timesteps", loader.get_timesteps(0))
     print("rgb", end=" ")
@@ -274,7 +279,6 @@ def main():
     imginfo(loader.track())
 
     # === Test EpisodeList
-    eplist = EpisodeList()
     sample = eplist[0]
     print("sample")
     imginfo(sample["images"])
