@@ -280,7 +280,8 @@ class RawScene:
                continue
 
             # MV compute gripper state
-            # Apply a "box filter", inside the interval the state must be constant.
+            # Apply a "box filter" with length box_filter,
+            # inside the interval the state must be constant.
             # Look a bit into future (gripper off -> gripper on).
             # Look a bit into past (gripper on -> gripper off).
             box_filter = self.FPS * 0.4 # sec
@@ -411,7 +412,7 @@ class RawScene:
             self.imsaver.append(time_stamp_camera, left_image)  # time in ms
             self.imsaver.snap("first", left_image) # save first episode image
 
-            # first projection
+            # finger tip projection
             point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
             point_3d = point_3d / point_3d[3]
 
@@ -442,7 +443,7 @@ class RawScene:
             if self.first_touch != -1 and not self.is_gripper_closed:
                 self.imsaver.snap("last", left_image)
 
-            # === base projection
+            # link projection
             # left_image = draw_sequence(left_image, [(x, y, 2)])
 
             h, w, c = left_image.shape
@@ -474,7 +475,6 @@ class RawScene:
                     depth_image[depth_image > 1.8] = 0
                     rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
             
-            # return frames
             return_dict[f"cameras/{camera_name}/left"] = left_image
         return return_dict
 

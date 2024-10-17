@@ -110,10 +110,7 @@ class DroidLoader:
         plot_detections(image_array, detections, str(plot_path))
 
         # === save detection in this class member variable
-        if detections:
-            self.detection = detections[0]
-        else:
-            self.detection.mask = np.zeros(())
+        self.detection = detections[0]
         
         # cache box
         with open(box_path, "w") as f:
@@ -146,9 +143,8 @@ class DroidLoader:
             #if (len(self.rgb) + i) % 4 != 0:
             #    continue
 
-            self.stop = len(self.rgb)
-
             self.rgb.append(images["cameras/ext1/left"])
+        self.stop = len(self.rgb)
 
     def get_start_stop(self) -> tuple[int, int]:
         # last index not included
@@ -200,28 +196,17 @@ class DroidLoader:
 
         # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
         trajectory = trajectories[0].trajectory_2D
-        print("trajectory shape", end=" ")
-        imginfo(Trajectory)
-        input("debug now!")
-
-
-        # we need n points, not n - 1
-        
-        # start, stop = self.get_start_stop() 
-        # n = stop - start
-        # full_trajectory = np.zeros((n, 1, 2))
-        # full_trajectory[1:n] = trajectory
-        # full_trajectory[0] = trajectory[0]
-        # trajectory = full_trajectory
 
         with open(trajectory_path, "wb") as f:
+            np.save(f, trajectory) 
+        with open("data/trajectory.npy", "wb") as f:
             np.save(f, trajectory) 
         self.trajectory = trajectory
 
         return trajectory
 
 
-class EpisodeList(torch.utils.data.Dataset):
+class EpisodeList:
     def __init__(self):
         # === read list of espisodes which was saved by dirlist.py
         from .my_episode_list import date_to_localpath
@@ -277,11 +262,14 @@ def main():
     print("bbox", loader.get_bbox(start, "hand_bbox"))
     print("trajectory", end=" ")
     imginfo(loader.track())
+    print("mask")
+    imginfo(loader.detection.mask)
 
     # === Test EpisodeList
     sample = eplist[0]
-    print("sample")
+    print("rgb batch", end=" ")
     imginfo(sample["images"])
+    print("robot state batch", end=" ")
     imginfo(sample["robot_state"])
 
     # Interface

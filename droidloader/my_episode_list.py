@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import json
+import re
 
 # === existing episodes
 with open("data/existing_episodes.json") as f:
@@ -22,3 +23,17 @@ def convert_uuid_to_localpath(uuid: str):
     return str(localpath)
 
 date_to_localpath = {episode[0]: convert_uuid_to_localpath(episode[1]) for episode in existing_episodes}
+
+
+def read_episode_date(episode: str):
+    # uuid of episode
+    json_file = list(episode.glob("*json"))[0]
+    with open(json_file, "r") as f:
+        metadata = json.load(f)
+    uuid = metadata["uuid"]
+
+    # extract date
+    regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
+    date_str = re.findall(regex, uuid)[0]
+
+    return date_str

@@ -298,3 +298,29 @@ class DetectionProcessor:
         detections = self.segment(image, detections, polygon_refinement)
 
         return np.array(image), detections
+
+
+if __name__ == "__main__":
+    # test on one image
+    
+    detector_id = "IDEA-Research/grounding-dino-base"
+    segmenter_id = "facebook/sam-vit-base"
+    processor = DetectionProcessor(detector_id, segmenter_id)
+
+    labels = ["a green cube."]
+    threshold = 0.3
+
+    image = cv2.imread("data/example.jpg")[:,:,::-1].astype(np.float32) / 255
+
+    # detections: zero or one detection List[DetectionResult]
+    # DetectionResult: mask
+    image_array, detections = processor.grounded_segmentation(
+        image=Image.fromarray(image),
+        labels=labels,
+        threshold=threshold,
+        polygon_refinement=True,
+    )
+
+    plot_path = Path("data/segmentation.jpg")
+    plot_path.parent.mkdir(parents=True, exist_ok=True)
+    plot_detections(image_array, detections, str(plot_path))

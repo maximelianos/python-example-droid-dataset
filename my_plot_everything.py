@@ -16,8 +16,7 @@ def main():
     parser.add_argument('--visualize', action='store_true', help="show rerun visualisation")
     args = parser.parse_args()
 
-    root_dir = Path(__file__).parent
-    target_dir = root_dir / "data" / "droid_raw" / "1.0.1"
+    target_dir = Path("data") / "droid_raw" / "1.0.1"
     annotations_file_name = "aggregated-annotations-030724.json"
     with open(target_dir / annotations_file_name) as f:
         annotations = json.load(f)
