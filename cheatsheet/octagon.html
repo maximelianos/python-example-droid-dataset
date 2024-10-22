@@ -66,23 +66,26 @@ Setup DITTO environment
   $ cn
   $ pip install torch torchvision transformers
   $ pip install -r requirements.txt
-  conda install -c conda-forge libstdcxx-ng
-  pip install -e .
+  $ conda install -c conda-forge libstdcxx-ng
+  $ pip install -e .
 
 # alias
   alias cn='conda activate imitating_videos'
   alias jn='conda activate imitating_videos && cd $HOME/octagon && jupyter notebook'
 
-# install FlowControl
-  $ pip install ruamel.yaml
-  $ pip install git+https://github.com/facebookresearch/segment-anything.git
+# install FlowControl (see DITTO instructions)
+
+# install RAFT
+
+$ pip install ruamel.yaml
+$ pip install git+https://github.com/facebookresearch/segment-anything.git
 
 # install rerun
   $ conda install scikit-image=0.19 pandas matplotlib jupyter notebook
   $ pip install gsutil
   $ pip install -r requirements.txt
   $ pip uninstall opencv-python
-  $ pip install opencv-python-headless
+  # $ pip install opencv-python-headless
   $ pip uninstall pyqt5
   $ conda install fastai::opencv-python-headless 
 </pre>
