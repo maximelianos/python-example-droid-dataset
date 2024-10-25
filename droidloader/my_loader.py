@@ -17,6 +17,7 @@ import re
 import datetime as dt
 
 import torch
+from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -220,11 +221,18 @@ class EpisodeList:
         loader.read_trajectory()
         loader.track()
         images = [torch.from_numpy(image) for image in loader.rgb] # list[(h, w, c)]
-        images = [tensor.permute(2, 0, 1) for tensor in images] # list[(c, h, w)]
-        images = torch.stack(images) # (n, c, h, w)
+        h, w, c = images[0].shape
+
+        images = [image.permute(2, 0, 1) for image in images] # list[(c, h, w)]
+        images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement
+        images = torch.stack(images).float() / 255 # (n, h, w, c)
+        trajectory = torch.from_numpy(loader.trajectory[:, 0, :]).float()
+        trajectory[:, 0] /= h
+        trajectory[:, 1] /= w
+
         sample = {
             "images": images,
-            "robot_state": loader.trajectory[:, 0, :] # (n, 2)
+            "robot_state": trajectory # (n, 2)
         }
         return sample
 
