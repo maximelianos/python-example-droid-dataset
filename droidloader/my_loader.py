@@ -273,6 +273,9 @@ def main():
     print("mask")
     imginfo(loader.detection.mask)
 
+    with open("data/trajectory.npy", "wb") as f:
+        np.save(f, loader.trajectory)
+
     # === Test EpisodeList
     sample = eplist[0]
     print("rgb batch", end=" ")

@@ -52,10 +52,10 @@ def draw_sequence(image: np.array, points: list):
 
         if color == 0:
             # mix
-            canvas[rows, cols] = colors[1] * (1-k) + colors[0] * k
+            canvas[rows, cols, :3] = colors[1] * (1-k) + colors[0] * k
         else:
             # fixed color
-            canvas[rows, cols] = colors[color]
+            canvas[rows, cols, :3] = colors[color]
 
     return canvas
 
@@ -473,7 +473,7 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
+                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
             
             return_dict[f"cameras/{camera_name}/left"] = left_image
         return return_dict
@@ -686,7 +686,7 @@ def blueprint_raw():
         TimePanel(expanded=False),
         auto_space_views=False,
     )
-    return mv_blueprint
+    return blueprint
 
 def main():
     # MV
