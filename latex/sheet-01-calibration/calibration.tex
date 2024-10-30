@@ -1,0 +1,142 @@
+\documentclass[addpoints]{exam}
+\pagestyle{headandfoot}
+
+\usepackage[T1,T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+
+\usepackage{amsmath, amsfonts}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{parskip}
+\usepackage{tikz} % drawing schemes
+\newcommand{\semester}{WS 2023/2024}
+\runningheader{\students}{Submission}{\semester}
+\runningfooter{}{\thepage}{}
+\headrule
+\footrule
+
+% ---------- Modify team name, students (matriculation number), exercise number here ----------
+\newcommand{\teamname}{dl2023-team1}
+\newcommand{\students}{Jane Doe (1234567), John Doe (7654321)}
+\newcommand{\assignmentnumber}{1}
+% ---------- End Modify ----------
+
+\title{Submission for Deep Learning Exercise \assignmentnumber}
+\author{Team: \teamname\\Students: \students}
+\date{\today}
+
+\begin{document}
+    \maketitle
+
+    % ---------- Add Solution below here ----------
+
+    \section{Модель Камеры Обскуры}
+    
+    \begin{enumerate}
+    	\item Проецирование. Внутренняя калибровка
+    	\item Вращение и перенос. Внешняя калибровка
+    \end{enumerate}
+    
+
+    \section{Внутренняя калибровка}
+    
+    
+    
+    Предположим C и оси X, Y, Z совпадают с камерой,
+    ось Z совпадает с принципиальной осью.
+    Камера Обскура проецирует 3D точку \( X_0 \) в 2D точку \( X_i \)
+    на плоскости изображения, на расстоянии \( f \) от центра проекции.
+    
+    \begin{tikzpicture}
+    	% hint: https://tikz.dev/tutorial
+    	\draw[->] (0, 0) -- (6.5, 0) node[anchor=west] {Z}; % axis X
+    	\draw[->] (0, 0) -- (0, 2.5) node[anchor=east] {Y}; % axis Y
+    	\draw (0, 0) node {\textbullet} node[anchor=east] {$C$} -- (3, 1) node {\textbullet} node[anchor=south] {$X_1$}; % 0 - X1
+    	\draw (3, 1) -- (3, 0); % perpendicular
+    	\draw (3, 1) -- (6, 2) node[anchor=south] {$X_0$} node {\textbullet}; % X1 - X0
+    	\draw (6, 2) -- (6, 0); % perpendicular
+    	
+    \end{tikzpicture}
+    
+    У физической Камеры Обскуры плоскость изображения находится после
+    центра, в то время как мы ставим плоскость перед центром для простоты.
+    
+    \[
+    \begin{aligned}
+    	C &= (0, 0, 0)\\
+    	X_0 &= (X, Y, Z)\\
+    	X_i &= (x_1, y_1, f)
+    \end{aligned}    
+    \]
+    
+    \subsection{Уравнение перспективной проекции}
+    \[
+    \cfrac{y_1}{f} = \cfrac{Y}{Z};\ \cfrac{x_1}{f} = \cfrac{X}{Z}
+    \]
+    
+    То же самое в однородных координатах:
+    
+    \[
+    \begin{pmatrix}
+    	x_1\\
+    	y_1\\
+    	1
+    \end{pmatrix} = 
+    \begin{pmatrix}
+    	f & 0 & 0 & 0\\
+    	0 & f & 0 & 0\\
+    	0 & 0 & 1 & 0
+    \end{pmatrix}
+    \begin{pmatrix}
+    	X\\
+    	Y\\
+    	Z\\
+    	1
+    \end{pmatrix}
+    \]
+    
+    Получаем
+    \[
+    x_1 = fX/Z;\ y_1=fY/Z
+    \]
+    
+    \subsection{Преобразование из проекции в пиксельную матрицу}
+    
+	Нужно учесть размер пикселя \( pix \) и перенести принципиальную точку \( (c_x, c_y) \) в начало координат изображения.
+    
+    \[
+    (x, y) \rightarrow (\frac{x}{pix} + c_x, \frac{y}{pix} + c_y)
+    \]
+    
+    То же самое в виде матриц:
+    
+    \[
+    \begin{pmatrix}
+    	u\\
+    	v\\
+    	1
+    \end{pmatrix} =
+    \begin{pmatrix}
+    	1/pix & s & c_x\\
+    	0 & 1/pix & c_y\\
+    	0 & 0 & 1
+    \end{pmatrix}
+    \begin{pmatrix}
+    	x\\
+    	y\\
+    	1
+    \end{pmatrix}
+    \]
+    
+    \( s = 0 \) --- наклон осей x и y
+    
+    
+    \subsection{Subsection}
+
+    % ---------- End of Document ----------
+    
+    \subsection{References}
+
+\end{document}

@@ -10,3 +10,8 @@ shell.nix
 .idea/
 .ipynb_checkpoints/
 plot/
+
+**.aux
+**.log
+**.gz
+
