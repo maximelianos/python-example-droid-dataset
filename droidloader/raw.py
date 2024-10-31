@@ -376,10 +376,20 @@ class RawScene:
             ),
 
             # === depth view
-            depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
+            # MV depth image is aligned with the left image, according to ZED docs
+            
+            # original
+            #depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
+            #rotation = Rotation.from_euler(
+            #    "xyz", np.array(extrinsics_right[3:])
+            #).as_matrix()
+
+            depth_translation = extrinsics_left[:3]
             rotation = Rotation.from_euler(
-                "xyz", np.array(extrinsics_right[3:])
+                "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
+
+
 
             rr.log(
                 f"cameras/{camera_name}/depth",
