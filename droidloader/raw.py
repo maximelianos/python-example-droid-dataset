@@ -153,6 +153,7 @@ class StereoCamera:
             left_image = sl.Mat()
             right_image = sl.Mat()
             depth_image = sl.Mat()
+            point_cloud = sl.Mat()
 
             rt_param = sl.RuntimeParameters()
             err = self.zed.grab(rt_param)
@@ -165,7 +166,10 @@ class StereoCamera:
 
                 self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
                 depth_image = np.array(depth_image.numpy())
-                return (left_image, right_image, depth_image)
+
+                self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
+                point_cloud = np.array(point_cloud.numpy())
+                return (left_image, right_image, depth_image, point_cloud)
             else:
                 return None
         else:
@@ -259,7 +263,7 @@ class RawScene:
         if Path(trajectory_path).exists():
             with open(trajectory_path, "rb") as f:
                 self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
-                print("loaded the calculated trajectory")
+                print("loaded tracked trajectory")
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -412,10 +416,11 @@ class RawScene:
             if not frames:
                 continue
             
-            left_image, right_image, depth_image = frames
+            left_image, right_image, depth_image, point_cloud = frames
 
             # MV
-            left_image = left_image[:, :, ::-1].copy()
+            # remove alpha channel if present, convert from BGR to RGB
+            left_image = left_image[:, :, :3][:, :, ::-1].copy()
             imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
             # save frame to queue
@@ -439,7 +444,7 @@ class RawScene:
                 # self.first_touch_3d = point_3d
                 self.first_touch_2d = point_2d
 
-            # === after first touch
+            # === after first touch, inclusive
             if self.first_touch != -1:
                 # self.points.append((x, y, 0))
 
@@ -484,8 +489,9 @@ class RawScene:
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
                     rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
-            
+
             return_dict[f"cameras/{camera_name}/left"] = left_image
+            return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
         return return_dict
 
     def log_action(self, i: int) -> None:
