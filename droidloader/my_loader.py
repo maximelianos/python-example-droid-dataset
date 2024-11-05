@@ -17,6 +17,7 @@ import re
 import datetime as dt
 
 import torch
+from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -55,6 +56,7 @@ class DroidLoader:
         self.is_gripper_closed = False
 
         self.rgb = []
+        self.pcd = []
         self.start = 0
         self.stop = -1
 
@@ -110,10 +112,7 @@ class DroidLoader:
         plot_detections(image_array, detections, str(plot_path))
 
         # === save detection in this class member variable
-        if detections:
-            self.detection = detections[0]
-        else:
-            self.detection.mask = np.zeros(())
+        self.detection = detections[0]
         
         # cache box
         with open(box_path, "w") as f:
@@ -146,9 +145,9 @@ class DroidLoader:
             #if (len(self.rgb) + i) % 4 != 0:
             #    continue
 
-            self.stop = len(self.rgb)
-
             self.rgb.append(images["cameras/ext1/left"])
+            self.pcd.append(images["cameras/ext1/pcd"])
+        self.stop = len(self.rgb)
 
     def get_start_stop(self) -> tuple[int, int]:
         # last index not included
@@ -200,28 +199,17 @@ class DroidLoader:
 
         # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
         trajectory = trajectories[0].trajectory_2D
-        print("trajectory shape", end=" ")
-        imginfo(Trajectory)
-        input("debug now!")
-
-
-        # we need n points, not n - 1
-        
-        # start, stop = self.get_start_stop() 
-        # n = stop - start
-        # full_trajectory = np.zeros((n, 1, 2))
-        # full_trajectory[1:n] = trajectory
-        # full_trajectory[0] = trajectory[0]
-        # trajectory = full_trajectory
 
         with open(trajectory_path, "wb") as f:
+            np.save(f, trajectory) 
+        with open("data/trajectory.npy", "wb") as f:
             np.save(f, trajectory) 
         self.trajectory = trajectory
 
         return trajectory
 
 
-class EpisodeList(torch.utils.data.Dataset):
+class EpisodeList:
     def __init__(self):
         # === read list of espisodes which was saved by dirlist.py
         from .my_episode_list import date_to_localpath
@@ -234,12 +222,43 @@ class EpisodeList(torch.utils.data.Dataset):
         loader = DroidLoader(Path(self.path_list[idx]))
         loader.read_trajectory()
         loader.track()
-        images = [torch.from_numpy(image) for image in loader.rgb] # list[(h, w, c)]
-        images = [tensor.permute(2, 0, 1) for tensor in images] # list[(c, h, w)]
-        images = torch.stack(images) # (n, c, h, w)
+
+        images = [torch.from_numpy(image) for image in loader.rgb] # list[torch (h, w, c)]
+        h, w, c = images[0].shape
+        print("image")
+        imginfo(images[0])
+        images = [image.permute(2, 0, 1) for image in images] # list[torch (c, h, w)]
+        images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement (128, 128)
+        images = torch.stack(images).float() / 255 # (n, h, w, c)
+
+        trajectory = torch.from_numpy(loader.trajectory[:, 0, :]).float()
+        trajectory[:, 0] /= h # [0, h] -> [0, 1]
+        trajectory[:, 1] /= w
+
+        # list[numpy (h, w, XYZ+color)] -> list[torch (h, w, XYZ)]
+        pcds = [torch.from_numpy(pcd[:, :, :3]) for pcd in loader.pcd]
+        pcds = torch.stack(pcds).float() # (n, 720, 1280, XYZ)
+        pcds = pcds[:, ::20, ::20, :]
+        n_steps, h, w, _ = pcds.shape
+        pcds = pcds.reshape(n_steps, h*w, 3)
+
+        import torch.nn.functional as F
+        # pad last dimension with 8 values to the right. read torch docs
+        MAX_STEPS = 10
+        trajectory = trajectory[:MAX_STEPS]
+        n_steps, _ = trajectory.shape
+        trajectory = F.pad(trajectory, (0, 8, 0, MAX_STEPS-n_steps), "constant", 0)
+        trajectory = trajectory.numpy()
+        
+        pcds = pcds[:MAX_STEPS]
+        # don't touch last dimension; pad number of points to 5500
+        pcds = F.pad(pcds, (0, 0, 0, 5500-h*w, 0, MAX_STEPS-n_steps), "constant", 0)
+        pcds = pcds.numpy()
+
         sample = {
             "images": images,
-            "robot_state": loader.trajectory[:, 0, :] # (n, 2)
+            "pcd_xyz": pcds,
+            "robot_state": trajectory # (n, 2)
         }
         return sample
 
@@ -277,11 +296,17 @@ def main():
     print("bbox", loader.get_bbox(start, "hand_bbox"))
     print("trajectory", end=" ")
     imginfo(loader.track())
+    print("mask")
+    imginfo(loader.detection.mask)
+
+    with open("data/trajectory.npy", "wb") as f:
+        np.save(f, loader.trajectory)
 
     # === Test EpisodeList
     sample = eplist[0]
-    print("sample")
+    print("rgb batch", end=" ")
     imginfo(sample["images"])
+    print("robot state batch", end=" ")
     imginfo(sample["robot_state"])
 
     # Interface

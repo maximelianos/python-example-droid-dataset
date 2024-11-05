@@ -55,7 +55,7 @@ $ python my_plot_everything.py
 
 Visualize an episode
 $ src/raw.py --visualize  --scene data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_16_51_12_2023  # OR
-$ python -m src.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
+$ python -m droidloader.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
 
 Statistics for all episodes in process04.ipynb
 </pre>
@@ -70,23 +70,26 @@ Setup DITTO environment
   $ cn
   $ pip install torch torchvision transformers
   $ pip install -r requirements.txt
-  conda install -c conda-forge libstdcxx-ng
-  pip install -e .
+  $ conda install -c conda-forge libstdcxx-ng
+  $ pip install -e .
 
 # alias
   alias cn='conda activate imitating_videos'
   alias jn='conda activate imitating_videos && cd $HOME/octagon && jupyter notebook'
 
-# install FlowControl
-  $ pip install ruamel.yaml
-  $ pip install git+https://github.com/facebookresearch/segment-anything.git
+# install FlowControl (see DITTO instructions)
+
+# install RAFT
+
+$ pip install ruamel.yaml
+$ pip install git+https://github.com/facebookresearch/segment-anything.git
 
 # install rerun
   $ conda install scikit-image=0.19 pandas matplotlib jupyter notebook
   $ pip install gsutil
   $ pip install -r requirements.txt
   $ pip uninstall opencv-python
-  $ pip install opencv-python-headless
+  # $ pip install opencv-python-headless
   $ pip uninstall pyqt5
   $ conda install fastai::opencv-python-headless 
 </pre>

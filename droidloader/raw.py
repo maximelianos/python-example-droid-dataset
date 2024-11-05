@@ -52,10 +52,10 @@ def draw_sequence(image: np.array, points: list):
 
         if color == 0:
             # mix
-            canvas[rows, cols] = colors[1] * (1-k) + colors[0] * k
+            canvas[rows, cols, :3] = colors[1] * (1-k) + colors[0] * k
         else:
             # fixed color
-            canvas[rows, cols] = colors[color]
+            canvas[rows, cols, :3] = colors[color]
 
     return canvas
 
@@ -153,6 +153,7 @@ class StereoCamera:
             left_image = sl.Mat()
             right_image = sl.Mat()
             depth_image = sl.Mat()
+            point_cloud = sl.Mat()
 
             rt_param = sl.RuntimeParameters()
             err = self.zed.grab(rt_param)
@@ -165,7 +166,10 @@ class StereoCamera:
 
                 self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
                 depth_image = np.array(depth_image.numpy())
-                return (left_image, right_image, depth_image)
+
+                self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
+                point_cloud = np.array(point_cloud.numpy())
+                return (left_image, right_image, depth_image, point_cloud)
             else:
                 return None
         else:
@@ -259,7 +263,7 @@ class RawScene:
         if Path(trajectory_path).exists():
             with open(trajectory_path, "rb") as f:
                 self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
-                print("loaded the calculated trajectory")
+                print("loaded tracked trajectory")
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -280,7 +284,8 @@ class RawScene:
                continue
 
             # MV compute gripper state
-            # Apply a "box filter", inside the interval the state must be constant.
+            # Apply a "box filter" with length box_filter,
+            # inside the interval the state must be constant.
             # Look a bit into future (gripper off -> gripper on).
             # Look a bit into past (gripper on -> gripper off).
             box_filter = self.FPS * 0.4 # sec
@@ -375,10 +380,20 @@ class RawScene:
             ),
 
             # === depth view
-            depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
+            # MV depth image is aligned with the left image, according to ZED docs
+            
+            # original
+            #depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
+            #rotation = Rotation.from_euler(
+            #    "xyz", np.array(extrinsics_right[3:])
+            #).as_matrix()
+
+            depth_translation = extrinsics_left[:3]
             rotation = Rotation.from_euler(
-                "xyz", np.array(extrinsics_right[3:])
+                "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
+
+
 
             rr.log(
                 f"cameras/{camera_name}/depth",
@@ -401,17 +416,18 @@ class RawScene:
             if not frames:
                 continue
             
-            left_image, right_image, depth_image = frames
+            left_image, right_image, depth_image, point_cloud = frames
 
             # MV
-            left_image = left_image[:, :, ::-1].copy()
+            # remove alpha channel if present, convert from BGR to RGB
+            left_image = left_image[:, :, :3][:, :, ::-1].copy()
             imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
             # save frame to queue
             self.imsaver.append(time_stamp_camera, left_image)  # time in ms
             self.imsaver.snap("first", left_image) # save first episode image
 
-            # first projection
+            # finger tip projection
             point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
             point_3d = point_3d / point_3d[3]
 
@@ -428,7 +444,7 @@ class RawScene:
                 # self.first_touch_3d = point_3d
                 self.first_touch_2d = point_2d
 
-            # === after first touch
+            # === after first touch, inclusive
             if self.first_touch != -1:
                 # self.points.append((x, y, 0))
 
@@ -442,7 +458,7 @@ class RawScene:
             if self.first_touch != -1 and not self.is_gripper_closed:
                 self.imsaver.snap("last", left_image)
 
-            # === base projection
+            # link projection
             # left_image = draw_sequence(left_image, [(x, y, 2)])
 
             h, w, c = left_image.shape
@@ -472,10 +488,10 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image))
-            
-            # return frames
+                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+
             return_dict[f"cameras/{camera_name}/left"] = left_image
+            return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
         return return_dict
 
     def log_action(self, i: int) -> None:
@@ -686,7 +702,7 @@ def blueprint_raw():
         TimePanel(expanded=False),
         auto_space_views=False,
     )
-    return mv_blueprint
+    return blueprint
 
 def main():
     # MV
