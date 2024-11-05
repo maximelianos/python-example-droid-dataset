@@ -1,4 +1,4 @@
-# Development and testing
+# Implementation and testing
 
 ## DITTO
 
@@ -26,4 +26,12 @@ Visualize an episode
 $ python -m droidloader.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
 
 Compute statistics for all episodes in process04.ipynb
+```
+
+### Dataloader
+
+Test
+
+```
+$ python -m src.my_loader --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
 ```

@@ -46,6 +46,7 @@ cd 3D-Diffusion-Policy && pip install -e . && cd ..
 
 # If locally (doesnt work on Ubuntu18):
 pip install rerun-sdk==0.15.1
+pip install gymnasium
 ```
 
 ## DITTO environment
