@@ -11,20 +11,20 @@
 \usepackage[usenames,dvipsnames]{color}
 \usepackage{parskip}
 \usepackage{tikz} % drawing schemes
-\newcommand{\semester}{WS 2023/2024}
-\runningheader{\students}{Submission}{\semester}
+\newcommand{\semester}{WS 2024/2025}
+\runningheader{\students}{}{\semester}
 \runningfooter{}{\thepage}{}
 \headrule
 \footrule
 
 % ---------- Modify team name, students (matriculation number), exercise number here ----------
 \newcommand{\teamname}{dl2023-team1}
-\newcommand{\students}{Jane Doe (1234567), John Doe (7654321)}
+\newcommand{\students}{Великанов Максим}
 \newcommand{\assignmentnumber}{1}
 % ---------- End Modify ----------
 
-\title{Submission for Deep Learning Exercise \assignmentnumber}
-\author{Team: \teamname\\Students: \students}
+\title{Перспективная проекция}
+\author{Великанов Максим}
 \date{\today}
 
 \begin{document}
@@ -32,7 +32,7 @@
 
     % ---------- Add Solution below here ----------
 
-    \section{Модель Камеры Обскуры}
+    \section*{Перспективная проекция}
     
     \begin{enumerate}
     	\item Проецирование. Внутренняя калибровка
@@ -43,37 +43,44 @@
     \section{Внутренняя калибровка}
     
     
-    
-    Предположим C и оси X, Y, Z совпадают с камерой,
+    {\bf Система координат}\\
+    Центр C и оси X, Y, Z совпадают с камерой,
     ось Z совпадает с принципиальной осью.
-    Камера Обскура проецирует 3D точку \( X_0 \) в 2D точку \( X_i \)
+    Камера Обскура проецирует 3D точку \( X_0 \) в 2D точку \( X_1 \)
     на плоскости изображения, на расстоянии \( f \) от центра проекции.
     
     \begin{tikzpicture}
-    	% hint: https://tikz.dev/tutorial
+    	% hint: tikz manual https://tikz.dev/tutorial
     	\draw[->] (0, 0) -- (6.5, 0) node[anchor=west] {Z}; % axis X
     	\draw[->] (0, 0) -- (0, 2.5) node[anchor=east] {Y}; % axis Y
-    	\draw (0, 0) node {\textbullet} node[anchor=east] {$C$} -- (3, 1) node {\textbullet} node[anchor=south] {$X_1$}; % 0 - X1
-    	\draw (3, 1) -- (3, 0); % perpendicular
+    	\draw (0, 0) node {\textbullet} node[anchor=east] {$C$} -- (3, 1) node {\textbullet} node[anchor=south] {$X_1$}; % C - X1
+    	\draw (3, 1) -- node[anchor=west] {$y_1$} (3, 0); % perpendicular
+    	\draw (0, 0) -- node[anchor=north] {$f$} (3, 0); % C - perp X1
     	\draw (3, 1) -- (6, 2) node[anchor=south] {$X_0$} node {\textbullet}; % X1 - X0
-    	\draw (6, 2) -- (6, 0); % perpendicular
+    	\draw (6, 2) -- node[anchor=west] {$Y$} (6, 0); % perpendicular
     	
     \end{tikzpicture}
-    
-    У физической Камеры Обскуры плоскость изображения находится после
-    центра, в то время как мы ставим плоскость перед центром для простоты.
     
     \[
     \begin{aligned}
     	C &= (0, 0, 0)\\
     	X_0 &= (X, Y, Z)\\
-    	X_i &= (x_1, y_1, f)
+    	X_1 &= (x_1, y_1, f)
     \end{aligned}    
     \]
     
-    \subsection{Уравнение перспективной проекции}
+    Считаем, что плоскость изображения, на которое идет проекция, находится перед камерой для простоты. У физической камеры обскуры изображение формируется сзади.
+    
+    
+    
+    
+    
+    {\bf Уравнение перспективной проекции}\\
+    Из подобия треугольников следует
     \[
-    \cfrac{y_1}{f} = \cfrac{Y}{Z};\ \cfrac{x_1}{f} = \cfrac{X}{Z}
+    \cfrac{x_1}{f} = \cfrac{X}{Z};\; \cfrac{y_1}{f} = \cfrac{Y}{Z}
+    \; \Rightarrow \;
+    x_1 = \cfrac{fX}{Z};\ y_1=\cfrac{fY}{Z}
     \]
     
     То же самое в однородных координатах:
@@ -97,20 +104,9 @@
     \end{pmatrix}
     \]
     
-    Получаем
-    \[
-    x_1 = fX/Z;\ y_1=fY/Z
-    \]
+    {\bf Преобразование в пиксельную матрицу}
     
-    \subsection{Преобразование из проекции в пиксельную матрицу}
-    
-	Нужно учесть размер пикселя \( pix \) и перенести принципиальную точку \( (c_x, c_y) \) в начало координат изображения.
-    
-    \[
-    (x, y) \rightarrow (\frac{x}{pix} + c_x, \frac{y}{pix} + c_y)
-    \]
-    
-    То же самое в виде матриц:
+	Размер пикселя \( pix \), принципиальная точка \( (c_x, c_y) \). Координаты в пиксельной матрице $(u, v)$.
     
     \[
     \begin{pmatrix}
@@ -124,19 +120,107 @@
     	0 & 0 & 1
     \end{pmatrix}
     \begin{pmatrix}
-    	x\\
-    	y\\
+    	x_1\\
+    	y_1\\
     	1
     \end{pmatrix}
     \]
     
     \( s = 0 \) --- наклон осей x и y
     
+    {\bf Матрица внутренней калибровки}
     
-    \subsection{Subsection}
+    Сначала применяется перспективная проекция $(X, Y, Z) \rightarrow (x_1, y_1)$,\\ потом пиксельная матрица $(x_1, y_1) \rightarrow (u, v)$.
+    
+    \[
+    \begin{pmatrix}
+    	u\\
+    	v\\
+    	1
+    \end{pmatrix} =
+    \begin{pmatrix}
+    	1/pix & 0 & c_x\\
+    	0 & 1/pix & c_y\\
+    	0 & 0 & 1
+    \end{pmatrix}
+    \begin{pmatrix}
+    	f & 0 & 0 & 0\\
+    	0 & f & 0 & 0\\
+    	0 & 0 & 1 & 0
+    \end{pmatrix}
+    \begin{pmatrix}
+    	X\\
+    	Y\\
+    	Z\\
+    	1
+    \end{pmatrix} =
+    \begin{pmatrix}
+    	f/pix & 0 & c_x & 0\\
+    	0 & f/pix & c_y & 0\\
+    	0 & 0 & 1 & 0
+    \end{pmatrix}
+    \begin{pmatrix}
+    	X\\
+    	Y\\
+    	Z\\
+    	1
+    \end{pmatrix}
+    \]
+    
+    \section{Внешняя калибровка}
+    
+    Переход из системы отсчёта камеры в мир состоит из поворота и переноса.
+    
+    {\bf Матрица поворота вокруг оси в 3D}
+    
+    \[
+    X(\phi), \text{pitch} =
+    \begin{pmatrix}
+    	1 & 0 & 0\\
+    	0 & \cos \phi & -\sin \phi\\
+    	0 & \sin \phi & \cos \phi
+    \end{pmatrix}\quad
+    Y(\phi), \text{yaw} = 
+    \begin{pmatrix}
+    	\cos \phi & 0 & -\sin \phi\\
+    	0 & 1 & 0\\
+    	\sin \phi & 0 & \cos \phi
+    \end{pmatrix}\quad
+    Z(\phi), \text{roll} = 
+    \begin{pmatrix}
+    	\cos \phi & -\sin \phi & 0\\
+    	\sin \phi & \cos \phi & 0\\
+    	0 & 0 & 1
+    \end{pmatrix}
+    \]
+    
+    {\bf Из системы отсчёта камеры в мир}
+    
+    \[
+    C = 
+    \begin{pmatrix}
+    	Rot & T\\
+    	[0, 0, 0] & 1\\
+    \end{pmatrix}\quad
+    \]
+    
+    \underline{Вопрос} Какой размер у этой матрицы? Какие координаты имеет камера в с.о. мира? Подсказка: взять центр камеры.
+    
+    {\bf Из системы отсчёта мира в камеру}
+    
+    $C^{-1}$ --- матрица внешней калибровки.
+    
+    \[
+    C^{-1} = 
+    \begin{pmatrix}
+    	Rot^T & -Rot^T T\\
+    	[0, 0, 0] & 1\\
+    \end{pmatrix}\quad
+    \]
 
     % ---------- End of Document ----------
     
-    \subsection{References}
+    \section{References}
+    
 
 \end{document}
