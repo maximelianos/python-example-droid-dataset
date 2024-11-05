@@ -198,10 +198,12 @@ class DroidLoader:
             trajectories[demonstration_index] = Trajectory.from_hands23(loaders[demonstration_index], n_frames=num_frames)
 
         # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
-        trajectory = trajectories[0].trajectory_2D
+        trajectory = trajectories[0].trajectory_2D  # (n_steps, 1, 2)
+
+        trajectory = trajectory.reshape((None, 2))
 
         with open(trajectory_path, "wb") as f:
-            np.save(f, trajectory) 
+            np.save(f, trajectory)
         with open("data/trajectory.npy", "wb") as f:
             np.save(f, trajectory) 
         self.trajectory = trajectory

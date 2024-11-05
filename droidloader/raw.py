@@ -18,6 +18,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
+from .my_episode_list import episodes
 
 
 def ext_to_camera(t, rot):
@@ -144,7 +145,7 @@ class StereoCamera:
             # print(f"opening {mp4_path}")
 
 
-    def get_next_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray | None] | None:
+    def get_next_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None] | None:
         """Gets the the next from both cameras and maybe computes the depth."""
 
         if hasattr(self, "zed"):
@@ -178,7 +179,7 @@ class StereoCamera:
             if ret:
                 left_image = frame[:,:1280,:]
                 right_image = frame[:,1280:,:]
-                return (left_image, right_image, None)
+                return (left_image, right_image, None, None)
             else:
                 # print("empty!")
                 return None
@@ -251,7 +252,6 @@ class RawScene:
         self.visible_count = 0  # is projected 2D point visible
 
         # compute difference image
-        self.first_touch_3d: np.array = None
         self.first_touch_2d: np.array = None
         self.max_distance_grip: float = 0
 
@@ -264,6 +264,10 @@ class RawScene:
             with open(trajectory_path, "rb") as f:
                 self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
                 print("loaded tracked trajectory")
+        n_steps = self.calc_trajectory.shape[0]
+       
+        # loop over frames, get 3D trajectory
+        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -281,7 +285,7 @@ class RawScene:
         for camera_name, camera in self.cameras.items():
             # MV
             if camera_name != "ext1":
-               continue
+                continue
 
             # MV compute gripper state
             # Apply a "box filter" with length box_filter,
@@ -319,7 +323,7 @@ class RawScene:
                 self.gripper_duration += 1
             # print("frame", i, "gripper_closed", self.is_gripper_closed)
 
-            # END
+            # END gripper state
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"
@@ -348,7 +352,7 @@ class RawScene:
                 ),
             ),
 
-            # MV compute projection matrix
+            # MV left projection matrix
             intr = camera.left_intrinsic_mat  # [3, 3]
             t = np.array(extrinsics_left[:3]) # [3]
             rot = rotation                    # [3, 3]
@@ -380,20 +384,11 @@ class RawScene:
             ),
 
             # === depth view
-            # MV depth image is aligned with the left image, according to ZED docs
-            
-            # original
-            #depth_translation = (extrinsics_left[:3] + extrinsics_right[:3]) / 2
-            #rotation = Rotation.from_euler(
-            #    "xyz", np.array(extrinsics_right[3:])
-            #).as_matrix()
-
+            # MV depth image is aligned with the left image, according to ZED docs 
             depth_translation = extrinsics_left[:3]
             rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
-
-
 
             rr.log(
                 f"cameras/{camera_name}/depth",
@@ -411,19 +406,18 @@ class RawScene:
 
 
 
-            # === process frame
+            # === get frame
             frames = camera.get_next_frame()
             if not frames:
                 continue
             
             left_image, right_image, depth_image, point_cloud = frames
 
-            # MV
             # remove alpha channel if present, convert from BGR to RGB
             left_image = left_image[:, :, :3][:, :, ::-1].copy()
             imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-            # save frame to queue
+            # save frame
             self.imsaver.append(time_stamp_camera, left_image)  # time in ms
             self.imsaver.snap("first", left_image) # save first episode image
 
@@ -435,16 +429,14 @@ class RawScene:
             point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
             x, y = point_2d[0], point_2d[1]
             
-
+            # === first touch
             if self.first_touch == i:
-                # frame of first touch
                 self.imsaver.snap("grip", left_image)
                 self.imsaver.save_center(time_stamp_camera)
 
-                # self.first_touch_3d = point_3d
                 self.first_touch_2d = point_2d
 
-            # === after first touch, inclusive
+            # === after first touch (inclusive)
             if self.first_touch != -1:
                 # self.points.append((x, y, 0))
 
@@ -476,8 +468,12 @@ class RawScene:
                 self.first_touch != -1 and
                 i - self.first_touch < self.calc_trajectory.shape[0]
             ):
-                y, x = self.calc_trajectory[i - self.first_touch].reshape((2))
+                traj_ind = i - self.first_touch
+                y, x = self.calc_trajectory[traj_ind].reshape((2))
                 self.points.append((x, y, 0))
+                self.trajectory_3d[traj_ind] = point_cloud[y, x]
+                print("3d point", end="")
+                print(self.trajectory_3d[traj_ind])
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # Ignore points that are far away.
@@ -594,7 +590,8 @@ class RawScene:
 
     # MV
     def draw_image(self, path):
-        # use first image "grip", or last image "last" as canvas
+        # Execute after looping over all frames.
+        # first image "grip", or last image "last" as canvas
         plot = draw_sequence(self.imsaver.snapshots["last"], self.points)
         io.imsave(path, plot, quality=90)
 
@@ -605,6 +602,10 @@ class RawScene:
         io.imsave("data/frames/max_image.jpg", self.imsaver.snapshots["max"], quality=90)
         for time, image in self.imsaver.center_images:
             io.imsave(f"data/frames/center_{time:0>16}.jpg", image, quality=90)
+
+        # Save 3D trajectory to npy
+        with open("data/trajectory_3d.npy", "wb") as f:
+            np.save(f, self.trajectory_3d)
 
 
 def blueprint_raw():
@@ -710,7 +711,8 @@ def main():
         description="Visualizes the DROID dataset using Rerun."
     )
 
-    parser.add_argument("--scene", required=True, type=Path)
+    parser.add_argument("--scene", type=Path)
+    parser.add_argument("--sid", type=int)
     parser.add_argument("--plot", default="data/plot.jpg", type=Path)
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument("--urdf", default="franka_description/panda.urdf", type=Path)
@@ -723,7 +725,11 @@ def main():
     # args.visualize: bool
     rr.init("DROID-visualized", spawn=args.visualize) # MV
     urdf_logger = URDFLogger("franka_description/panda.urdf")
-    raw_scene: RawScene = RawScene(args.scene, args.visualize)
+    if args.sid:
+        scene = episodes[args.sid]
+    else:
+        scene = args.scene
+    raw_scene: RawScene = RawScene(scene, args.visualize)
     rr.send_blueprint(blueprint_raw())
     raw_scene.log(urdf_logger)
 
