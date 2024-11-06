@@ -266,10 +266,6 @@ class RawScene:
             with open(trajectory_path, "rb") as f:
                 self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
                 print("loaded tracked trajectory")
-        n_steps = self.calc_trajectory.shape[0]
-       
-        # loop over frames, get 3D trajectory
-        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -491,16 +487,12 @@ class RawScene:
                 i - self.first_touch < self.calc_trajectory.shape[0]
             ):
                 traj_ind = i - self.first_touch
-                y, x = self.calc_trajectory[traj_ind].reshape((2))
+                y, x = self.calc_trajectory[traj_ind]
                 self.points.append((x, y, 0))
-                self.trajectory_3d[traj_ind] = point_cloud[y, x]
 
                 point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
                 rr.log('action/object/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
                 rr.log('action/object/origin', rr.Points3D([point], radii=[0.2]))
-
-                print("3d point", end="")
-                print(self.trajectory_3d[traj_ind])
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 

@@ -21,6 +21,7 @@ from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
+from .my_episode_list import manual_paths
 
 # Copied from imitation_flow_nick.ipynb
 import sys
@@ -44,13 +45,12 @@ from DITTO.trajectory import Trajectory
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
 class DroidLoader:
-    def __init__(self, scene: Path):
+    def __init__(self, scene: str):
         # cache of mask in data/detection/<date>_mask.npy,
         # cache of box in data/detection/<date>_box.json,
         # cache of trajectory in data/trajectory/<date>_traj.npy
 
         self.scene = scene
-        self.i: int = 0
         self.image: np.ndarray = None
         self.detection: DetectionResult = DetectionResult(None, None, None)
         self.is_gripper_closed = False
@@ -62,14 +62,13 @@ class DroidLoader:
 
         self.intrinsics = None
 
-        # === read frames
+        # === read first frame
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
-        self.i += 1
         self.image = images["cameras/ext1/left"]
+        self.raw_scene = RawScene(scene, False)   # reset the reader
 
-        # === detect objects
-        # check if detection was already performed
+        # === check if detection was already performed
         episode_date: str = scene_to_date(scene)
         mask_path = Path("data/detection/" + episode_date + "_mask.npy")
         mask_path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,6 +83,8 @@ class DroidLoader:
                 self.detection.mask = np.load(f)
 
             return
+
+
 
         # === run detection only if no cache
         detector_id = "IDEA-Research/grounding-dino-base"
@@ -122,20 +123,21 @@ class DroidLoader:
         with open(mask_path, "wb") as f:
             np.save(f, self.detection.mask)
 
-    def read_trajectory(self):
-        # === read all frames into memory...
+    def _gripper_frames(self):
+        # Return only frames where gripper is closed.
+        # returns one frame or None
 
-        for i in range(1, self.raw_scene.trajectory_length):
+        for i in range(0, self.raw_scene.trajectory_length):
             # limit trajectory length
             if len(self.rgb) >= 70:
-                break
+                return
 
             # read frame
             images: dict = self.raw_scene.log_cameras_next(i)
 
             # ban gripper closing for the second time
             if self.raw_scene.gripper_close_count > 1:
-                break
+                return
 
             # skip when not closed
             if not self.raw_scene.is_gripper_closed:
@@ -145,6 +147,12 @@ class DroidLoader:
             #if (len(self.rgb) + i) % 4 != 0:
             #    continue
 
+            yield images
+
+   def read_trajectory(self):
+        # read all frames into memory...
+
+        for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
             self.pcd.append(images["cameras/ext1/pcd"])
         self.stop = len(self.rgb)
@@ -200,7 +208,7 @@ class DroidLoader:
         # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
         trajectory = trajectories[0].trajectory_2D  # (n_steps, 1, 2)
 
-        trajectory = trajectory.reshape((None, 2))
+        trajectory = trajectory.reshape((-1, 2))
 
         with open(trajectory_path, "wb") as f:
             np.save(f, trajectory)
@@ -210,18 +218,30 @@ class DroidLoader:
 
         return trajectory
 
+    def track3d(self):
+        # Read 2D trajectory, use point cloud, and save 3D trajectory
+        trajectory = self.track()
+        n_steps, _ = trajectory.shape
+        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
+
+        for i, images in enumerate(self._gripper_frames()):
+            y, x = trajectory[i]
+            pcd = images["cameras/ext1/pcd"]
+            self.trajectory_3d[i] = pcd[y, x]
+        with open("data/trajectory3d.npy", "wb") as f:
+            np.save(f, self.trajectory_3d)
+        return self.trajectory_3d
+
+
+ 
 
 class EpisodeList:
     def __init__(self):
         # === read list of espisodes which was saved by dirlist.py
-        from .my_episode_list import date_to_localpath
-
-        with open("data/manual_episodes.json", "r") as f:
-            date_list = json.load(f)
-            self.path_list = [date_to_localpath[date] for date in date_list]
+        self.path_list = manual_paths
 
     def __getitem__(self, idx: int):
-        loader = DroidLoader(Path(self.path_list[idx]))
+        loader = DroidLoader(self.path_list[idx])
         loader.read_trajectory()
         loader.track()
 
@@ -275,16 +295,16 @@ def main():
     )
 
     parser.add_argument("--scene", required=False, type=Path)
+    parser.add_argument("--sid", required=False, type=int)
     args = parser.parse_args()
 
-    eplist = EpisodeList()
-    cur_scene: Path
-    if args.scene:
-        cur_scene = args.scene
+    scene: str
+    if args.sid is not None:
+        scene = manual_paths[args.sid]
     else:
-        cur_scene = Path(eplist.path_list[0])
+        scene = args.scene
 
-    loader = DroidLoader(cur_scene)
+    loader = DroidLoader(scene)
     loader.read_trajectory()
     start, _ = loader.get_start_stop()
     print("start, stop", loader.get_start_stop())
@@ -305,6 +325,7 @@ def main():
         np.save(f, loader.trajectory)
 
     # === Test EpisodeList
+    eplist = EpisodeList()
     sample = eplist[0]
     print("rgb batch", end=" ")
     imginfo(sample["images"])

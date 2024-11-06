@@ -11,6 +11,7 @@ with open("data/existing_episodes.json") as f:
 # 0 - date
 # 1 - uuid
 # 2 - path
+# [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
 uuid_to_remotepath = {episode[1]: episode[2] for episode in existing_episodes}
 
 
@@ -30,10 +31,6 @@ _annotations_file_name = "aggregated-annotations-030724.json"
 annotations: dict[str, dict[str, str]]
 with open(_target_dir / _annotations_file_name) as f:
     annotations = json.load(f)
-
-# [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
-# with open("data/existing_episodes.json") as f:
-#     existing_episodes = json.load(f)
 
 # list of available episodes
 episodes: list[str] = []
@@ -61,3 +58,10 @@ def read_episode_date(episode: str):
     date_str = re.findall(regex, uuid)[0]
 
     return date_str
+
+# === manually selected episodes
+manual_paths: list[str] = []
+with open("data/manual_episodes.json", "r") as f:
+    _date_list = json.load(f)
+    manual_paths = [date_to_localpath[date] for date in _date_list]
+
