@@ -495,11 +495,9 @@ class RawScene:
                 self.points.append((x, y, 0))
                 self.trajectory_3d[traj_ind] = point_cloud[y, x]
 
-                point = point_cloud[y, x]
+                point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
                 rr.log('action/object/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
                 rr.log('action/object/origin', rr.Points3D([point], radii=[0.2]))
-
-
 
                 print("3d point", end="")
                 print(self.trajectory_3d[traj_ind])
