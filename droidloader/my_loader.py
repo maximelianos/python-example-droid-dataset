@@ -66,7 +66,6 @@ class DroidLoader:
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
         self.image = images["cameras/ext1/left"]
-        self.raw_scene = RawScene(scene, False)   # reset the reader
 
         # === check if detection was already performed
         episode_date: str = scene_to_date(scene)
@@ -126,6 +125,7 @@ class DroidLoader:
     def _gripper_frames(self):
         # Return only frames where gripper is closed.
         # returns one frame or None
+        self.raw_scene = RawScene(self.scene, False)   # reset the reader
 
         for i in range(0, self.raw_scene.trajectory_length):
             # limit trajectory length
@@ -149,7 +149,7 @@ class DroidLoader:
 
             yield images
 
-   def read_trajectory(self):
+    def read_trajectory(self):
         # read all frames into memory...
 
         for images in self._gripper_frames():
@@ -189,8 +189,8 @@ class DroidLoader:
         # Copied from imitation_flow_nick.ipynb
 
         # === check if trajectory was already computed
-        episode_date: str = scene_to_date(self.scene)
-        trajectory_path = Path("data/trajectory/" + episode_date + "_traj.npy")
+        self.episode_date: str = scene_to_date(self.scene)
+        trajectory_path = Path("data/trajectory/" + self.episode_date + "_traj.npy")
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
         if trajectory_path.exists():
             with open(trajectory_path, "rb") as f:
@@ -220,15 +220,25 @@ class DroidLoader:
 
     def track3d(self):
         # Read 2D trajectory, use point cloud, and save 3D trajectory
-        trajectory = self.track()
+        trajectory = self.trajectory
         n_steps, _ = trajectory.shape
-        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
 
+        # === check if trajectory was already computed
+        traj3d_path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")
+        if traj3d_path.exists():
+            with open(traj3d_path, "rb") as f:
+                self.trajectory_3d = np.load(f)
+            return self.trajectory_3d
+
+        # calculate 3D trajectory
+        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
         for i, images in enumerate(self._gripper_frames()):
             y, x = trajectory[i]
             pcd = images["cameras/ext1/pcd"]
             self.trajectory_3d[i] = pcd[y, x]
-        with open("data/trajectory3d.npy", "wb") as f:
+        with open(traj3d_path, "wb") as f:
+            np.save(f, self.trajectory_3d)
+        with open("data/trajectory_3d.npy", "wb") as f:
             np.save(f, self.trajectory_3d)
         return self.trajectory_3d
 
@@ -253,7 +263,7 @@ class EpisodeList:
         images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement (128, 128)
         images = torch.stack(images).float() / 255 # (n, h, w, c)
 
-        trajectory = torch.from_numpy(loader.trajectory[:, 0, :]).float()
+        trajectory = torch.from_numpy(loader.trajectory).float()
         trajectory[:, 0] /= h # [0, h] -> [0, 1]
         trajectory[:, 1] /= w
 
@@ -285,6 +295,15 @@ class EpisodeList:
         return sample
 
 
+def process_manuals():
+    for scene in manual_paths:
+        print("=== PROCESSING SCENE", scene)
+        Path("data/trajectory.npy").unlink(missing_ok=True)
+        Path("data/trajectory_3d.npy").unlink(missing_ok=True)
+        loader = DroidLoader(scene)
+        loader.read_trajectory()
+        loader.track()
+        print(loader.track3d())
 
 
 
@@ -320,9 +339,14 @@ def main():
     imginfo(loader.track())
     print("mask")
     imginfo(loader.detection.mask)
+    print("trajectory 3d", end=" ")
+    imginfo(loader.track3d())
+    print(loader.track3d())
 
     with open("data/trajectory.npy", "wb") as f:
         np.save(f, loader.trajectory)
+    with open("data/trajectory_3d.npy", "wb") as f:
+        np.save(f, loader.trajectory_3d)
 
     # === Test EpisodeList
     eplist = EpisodeList()
@@ -343,4 +367,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    process_manuals()

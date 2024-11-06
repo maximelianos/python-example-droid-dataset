@@ -261,11 +261,27 @@ class RawScene:
 
         # computed from nick
         self.calc_trajectory = None
-        trajectory_path = "data/trajectory.npy"
-        if Path(trajectory_path).exists():
-            with open(trajectory_path, "rb") as f:
-                self.calc_trajectory = np.load(f)  # (n, 1, 2) - y, x
+        _trajectory_path = "data/trajectory.npy"
+        if Path(_trajectory_path).exists():
+            with open(_trajectory_path, "rb") as f:
+                self.calc_trajectory = np.load(f)  # (n, 2) - y, x
                 print("loaded tracked trajectory")
+
+        self.calc_3d = None
+        _trajectory_path = "data/trajectory_3d.npy"
+        if Path(_trajectory_path).exists():
+            with open(_trajectory_path, "rb") as f:
+                self.calc_3d = np.load(f)  # (n, 4) - x, y, z, color
+                print("loaded 3d trajectory")
+                
+                # take average trajectory
+                _nan_mask = np.any(np.isnan(self.calc_3d), axis=1)
+                self.mean_3d = np.mean(self.calc_3d[~_nan_mask], axis=0)[:3]
+                print("mean 3d", self.mean_3d)
+        
+
+
+
 
     def log_cameras_next(self, i: int) -> None:
         """
@@ -404,7 +420,7 @@ class RawScene:
 
             # === left camera point cloud
             pcd_translation = extrinsics_left[:3]
-            rotation = Rotation.from_euler(
+            pcd_rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
 
@@ -412,14 +428,9 @@ class RawScene:
                 f"cameras/{camera_name}/pcd",
                 rr.Transform3D(
                     translation=pcd_translation,
-                    mat3x3=rotation,
+                    mat3x3=pcd_rotation,
                 )
             )
-
-            # === left camera track point
-            #rr.log('action/cartesian_position/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
-            #rr.log('action/cartesian_position/origin', rr.Points3D([trans], radii=[0.02]))
-
 
 
 
@@ -491,8 +502,14 @@ class RawScene:
                 self.points.append((x, y, 0))
 
                 point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
-                rr.log('action/object/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
-                rr.log('action/object/origin', rr.Points3D([point], radii=[0.2]))
+                rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
+
+                if self.calc_3d is not None:
+                    rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                    rr.log(f'cameras/{camera_name}/mean_3d', rr.Points3D([self.mean_3d], radii=[0.02]))
+
+
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
@@ -504,20 +521,25 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    # rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
-                    points = point_cloud[:, :, :3]
+                    points = point_cloud[:, :, :3] # cut color from point cloud
                     h, w, _ = points.shape
-                    points = points.reshape((h*w, 3))
-                    nan_mask = np.any(np.isnan(points), axis=1)
-                    #print("nan_mask")
-                    #print(nan_mask.sum())
-                    #imginfo(nan_mask)
+                    points = points.reshape((h*w, 3)) # make point cloud unordered
+                    nan_mask = np.any(np.isnan(points), axis=1) # remove nan points
                     points = points[~nan_mask, :]
-                    points = points[ np.sum(points ** 2, axis=1) < 1.0 ]
-                    # cut color from point cloud
-                    rr_points = rr.Points3D(positions=points, radii=[0.002])
-                    rr.log(f"cameras/{camera_name}/pcd", rr_points)
+                    points = points[np.sum(points ** 2, axis=1) < 1.0] # remove far away points
+                    if self.calc_3d is not None:
+                        # cut out sphere
+                        mag = np.sum((points - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
+                        points = points[mag < 0.3]
+                    u = np.random.uniform(size=(points.shape[0])) # subsample
+                    points = points[u < 1.0 / 10]
+                    print("pcd", end=" ")
+                    imginfo(points)
+                    
+                    rr_points = rr.Points3D(positions=points, radii=[0.001])
+                    #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
             return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
@@ -636,11 +658,6 @@ class RawScene:
         io.imsave("data/frames/max_image.jpg", self.imsaver.snapshots["max"], quality=90)
         for time, image in self.imsaver.center_images:
             io.imsave(f"data/frames/center_{time:0>16}.jpg", image, quality=90)
-
-        # Save 3D trajectory to npy
-        with open("data/trajectory_3d.npy", "wb") as f:
-            np.save(f, self.trajectory_3d)
-
 
 def blueprint_raw():
     from rerun.blueprint import (
