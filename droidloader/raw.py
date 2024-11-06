@@ -191,10 +191,12 @@ class RawScene:
     cameras: dict[str, StereoCamera]
 
     def __init__(self,
-                 dir_path: Path,
+                 dir_path: str,
                  visualize: bool
             ):
-        self.dir_path = dir_path
+        print("episode", dir_path)
+
+        self.dir_path: Path = Path(dir_path)
         # MV
         self.visualize = visualize
 
@@ -404,6 +406,26 @@ class RawScene:
                 ),
             ),
 
+            # === left camera point cloud
+            pcd_translation = extrinsics_left[:3]
+            rotation = Rotation.from_euler(
+                "xyz", np.array(extrinsics_left[3:])
+            ).as_matrix()
+
+            rr.log(
+                f"cameras/{camera_name}/pcd",
+                rr.Transform3D(
+                    translation=pcd_translation,
+                    mat3x3=rotation,
+                )
+            )
+
+            # === left camera track point
+            #rr.log('action/cartesian_position/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
+            #rr.log('action/cartesian_position/origin', rr.Points3D([trans], radii=[0.02]))
+
+
+
 
 
             # === get frame
@@ -472,8 +494,16 @@ class RawScene:
                 y, x = self.calc_trajectory[traj_ind].reshape((2))
                 self.points.append((x, y, 0))
                 self.trajectory_3d[traj_ind] = point_cloud[y, x]
+
+                point = point_cloud[y, x]
+                rr.log('action/object/transform', rr.Transform3D(translation=pcd_translation, mat3x3=rotation))
+                rr.log('action/object/origin', rr.Points3D([point], radii=[0.2]))
+
+
+
                 print("3d point", end="")
                 print(self.trajectory_3d[traj_ind])
+
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # Ignore points that are far away.
@@ -484,7 +514,20 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+                    # rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+
+                    points = point_cloud[:, :, :3]
+                    h, w, _ = points.shape
+                    points = points.reshape((h*w, 3))
+                    nan_mask = np.any(np.isnan(points), axis=1)
+                    #print("nan_mask")
+                    #print(nan_mask.sum())
+                    #imginfo(nan_mask)
+                    points = points[~nan_mask, :]
+                    points = points[ np.sum(points ** 2, axis=1) < 1.0 ]
+                    # cut color from point cloud
+                    rr_points = rr.Points3D(positions=points, radii=[0.002])
+                    rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
             return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
@@ -498,6 +541,7 @@ class RawScene:
         # pose = self.trajectory['action']['cartesian_position'][i]
 
         # Link to world coordinate
+        # Simply robot space
         trans, mat = extract_extrinsics(pose) # [3], [3, 3]
         self.world_pos_3d = ext_to_world(trans, mat) # [4, 4]
         # END MV
@@ -505,7 +549,7 @@ class RawScene:
         pose = self.trajectory['action']['cartesian_position'][i]
         trans, mat = extract_extrinsics(pose)
         rr.log('action/cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=mat))
-        rr.log('action/cartesian_position/origin', rr.Points3D([trans]))
+        rr.log('action/cartesian_position/origin', rr.Points3D([trans], radii=[0.02]))
 
         log_cartesian_velocity('action/cartesian_velocity', self.action['cartesian_velocity'][i])
 
@@ -725,10 +769,13 @@ def main():
     # args.visualize: bool
     rr.init("DROID-visualized", spawn=args.visualize) # MV
     urdf_logger = URDFLogger("franka_description/panda.urdf")
-    if args.sid:
+    
+    scene: str
+    if args.sid is not None:
         scene = episodes[args.sid]
     else:
         scene = args.scene
+    
     raw_scene: RawScene = RawScene(scene, args.visualize)
     rr.send_blueprint(blueprint_raw())
     raw_scene.log(urdf_logger)

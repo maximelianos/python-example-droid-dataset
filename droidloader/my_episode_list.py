@@ -24,6 +24,7 @@ def convert_uuid_to_localpath(uuid: str):
 date_to_localpath = {episode[0]: convert_uuid_to_localpath(episode[1]) for episode in existing_episodes}
 
 
+# === annotations
 _target_dir = Path("data") / "droid_raw" / "1.0.1"
 _annotations_file_name = "aggregated-annotations-030724.json"
 annotations: dict[str, dict[str, str]]
@@ -41,7 +42,10 @@ for date in sorted((_target_dir / "success").iterdir()):
         # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
         # .    .         .     .       date       episode
         episodes.append(str(episode))
-        print(f"{len(episodes)-1: >4}", episode)
+episodes = episodes[:10]
+
+for i, episode in enumerate(episodes):
+    print(f"{i: >4}", episode)
 print("episodes:", len(episodes))
 
 
