@@ -18,7 +18,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import episodes
+from .my_episode_list import manual_paths
 
 
 def ext_to_camera(t, rot):
@@ -535,9 +535,7 @@ class RawScene:
                         points = points[mag < 0.3]
                     u = np.random.uniform(size=(points.shape[0])) # subsample
                     points = points[u < 1.0 / 10]
-                    print("pcd", end=" ")
-                    imginfo(points)
-                    
+
                     rr_points = rr.Points3D(positions=points, radii=[0.001])
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
@@ -779,7 +777,7 @@ def main():
     
     scene: str
     if args.sid is not None:
-        scene = episodes[args.sid]
+        scene = manual_paths[args.sid]
     else:
         scene = args.scene
     
