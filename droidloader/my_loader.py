@@ -71,7 +71,7 @@ class DroidLoader:
         # dig out intrinsic from ZED
         _camera = self.raw_scene.cameras["ext1"]
         _left_intrinsic: np.ndarray = _camera.left_intrinsic_mat
-        self.left_intrinsic = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsic)
+        self.intrinsics = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsic)
 
         # === check if detection was already performed
         episode_date: str = scene_to_date(scene)
@@ -179,7 +179,7 @@ class DroidLoader:
 
     def get_object_mask(self, timestamp: int, refined=False) -> np.ndarray:
         # return uint8 (h, w, 1) [0, 255]
-        return self.detection.mask[:, :, np.newaxis]
+        return self.detection.mask[:, :, np.newaxis] > 128
 
     def get_goal_mask(self, timestamp: int, refined=False) -> np.ndarray:
         # return uint8 (h, w, 1) [0, 255]
@@ -351,18 +351,22 @@ def main():
     #imginfo(loader.track3d())
     #print(loader.track3d())
 
+    print("intrinsics", end=" ")
+    print(loader.intrinsics.matrix)
+
+
     with open("data/trajectory.npy", "wb") as f:
         np.save(f, loader.trajectory)
     #with open("data/trajectory_3d.npy", "wb") as f:
     #    np.save(f, loader.trajectory_3d)
 
     # === Test EpisodeList
-    eplist = EpisodeList()
-    sample = eplist[0]
-    print("rgb batch", end=" ")
-    imginfo(sample["images"])
-    print("robot state batch", end=" ")
-    imginfo(sample["robot_state"])
+    #eplist = EpisodeList()
+    #sample = eplist[0]
+    #print("rgb batch", end=" ")
+    #imginfo(sample["images"])
+    #print("robot state batch", end=" ")
+    #imginfo(sample["robot_state"])
 
     # Interface
     # loader.get_start_stop() -> [int, int]

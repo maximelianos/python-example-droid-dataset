@@ -278,8 +278,13 @@ class RawScene:
                 _nan_mask = np.any(np.isnan(self.calc_3d), axis=1)
                 self.mean_3d = np.mean(self.calc_3d[~_nan_mask], axis=0)[:3]
                 print("mean 3d", self.mean_3d)
-        
 
+        self.track_3d = None
+        _trajectory_path = "data/trajectory_track_3d.npy"
+        if Path(_trajectory_path).exists():
+            with open(_trajectory_path, "rb") as f:
+                self.track_3d = np.load(f)  # (n, 4) - x, y, z, color
+                print("loaded traked 3d trajectory")
 
 
 
@@ -400,7 +405,7 @@ class RawScene:
             # === depth view
             # MV depth image is aligned with the left image, according to ZED docs 
             depth_translation = extrinsics_left[:3]
-            rotation = Rotation.from_euler(
+            depth_rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
 
@@ -414,7 +419,7 @@ class RawScene:
                 f"cameras/{camera_name}/depth",
                 rr.Transform3D(
                     translation=depth_translation,
-                    mat3x3=rotation,
+                    mat3x3=depth_rotation,
                 ),
             ),
 
@@ -502,12 +507,20 @@ class RawScene:
                 self.points.append((x, y, 0))
 
                 point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
-                rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
+                #rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                #rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
 
-                if self.calc_3d is not None:
-                    rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                    rr.log(f'cameras/{camera_name}/mean_3d', rr.Points3D([self.mean_3d], radii=[0.02]))
+                #if self.calc_3d is not None:
+                    #rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                    #rr.log(f'cameras/{camera_name}/mean_3d', rr.Points3D([self.mean_3d], radii=[0.02]))
+
+                # tracked 3d point
+                if self.track_3d is not None:
+                    point: np.ndarray = self.track_3d[traj_ind] # [4, 4] rot + t
+                    t = point[:3, 3] # [3]
+                    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Transform3D(translation=depth_translation, mat3x3=depth_rotation))
+                    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Points3D([t], radii=[0.02]))
+
 
 
 
