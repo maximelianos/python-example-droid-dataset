@@ -56,6 +56,7 @@ class DroidLoader:
         self.is_gripper_closed = False
 
         self.rgb = []
+        self.depth = []
         self.pcd = []
         self.start = 0
         self.stop = -1
@@ -66,6 +67,11 @@ class DroidLoader:
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
         self.image = images["cameras/ext1/left"]
+
+        # dig out intrinsic from ZED
+        _camera = self.raw_scene.cameras["ext1"]
+        _left_intrinsic: np.ndarray = _camera.left_intrinsic_mat
+        self.left_intrinsic = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsic)
 
         # === check if detection was already performed
         episode_date: str = scene_to_date(scene)
@@ -154,6 +160,7 @@ class DroidLoader:
 
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
+            self.depth.append(images["cameras/ext1/depth"])
             self.pcd.append(images["cameras/ext1/pcd"])
         self.stop = len(self.rgb)
 
@@ -168,7 +175,7 @@ class DroidLoader:
         return self.rgb[timestamp]
 
     def get_depth(self, timestamp: int) -> np.ndarray:
-        return np.zeros_like(self.rgb[0])
+        return self.depth[timestamp]
 
     def get_object_mask(self, timestamp: int, refined=False) -> np.ndarray:
         # return uint8 (h, w, 1) [0, 255]
@@ -255,6 +262,7 @@ class EpisodeList:
         loader.read_trajectory()
         loader.track()
 
+        # all images in episode torch
         images = [torch.from_numpy(image) for image in loader.rgb] # list[torch (h, w, c)]
         h, w, c = images[0].shape
         print("image")
@@ -263,17 +271,10 @@ class EpisodeList:
         images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement (128, 128)
         images = torch.stack(images).float() / 255 # (n, h, w, c)
 
+        # trajectory torch
         trajectory = torch.from_numpy(loader.trajectory).float()
         trajectory[:, 0] /= h # [0, h] -> [0, 1]
         trajectory[:, 1] /= w
-
-        # list[numpy (h, w, XYZ+color)] -> list[torch (h, w, XYZ)]
-        pcds = [torch.from_numpy(pcd[:, :, :3]) for pcd in loader.pcd]
-        pcds = torch.stack(pcds).float() # (n, 720, 1280, XYZ)
-        pcds = pcds[:, ::20, ::20, :]
-        n_steps, h, w, _ = pcds.shape
-        pcds = pcds.reshape(n_steps, h*w, 3)
-
         import torch.nn.functional as F
         # pad last dimension with 8 values to the right. read torch docs
         MAX_STEPS = 10
@@ -281,9 +282,16 @@ class EpisodeList:
         n_steps, _ = trajectory.shape
         trajectory = F.pad(trajectory, (0, 8, 0, MAX_STEPS-n_steps), "constant", 0)
         trajectory = trajectory.numpy()
-        
+
+        # pcd torch
+        # list[numpy (h, w, XYZ+color)] -> list[torch (h, w, XYZ)]
+        pcds = [torch.from_numpy(pcd[:, :, :3]) for pcd in loader.pcd]
+        pcds = torch.stack(pcds).float() # (n, 720, 1280, XYZ)
+        pcds = pcds[:, ::20, ::20, :]
+        n_steps, h, w, _ = pcds.shape
+        pcds = pcds.reshape(n_steps, h*w, 3) # remove order
         pcds = pcds[:MAX_STEPS]
-        # don't touch last dimension; pad number of points to 5500
+        # don't touch last dimension; pad number of points to 5500; pad steps
         pcds = F.pad(pcds, (0, 0, 0, 5500-h*w, 0, MAX_STEPS-n_steps), "constant", 0)
         pcds = pcds.numpy()
 
@@ -339,14 +347,14 @@ def main():
     imginfo(loader.track())
     print("mask")
     imginfo(loader.detection.mask)
-    print("trajectory 3d", end=" ")
-    imginfo(loader.track3d())
-    print(loader.track3d())
+    #print("trajectory 3d", end=" ")
+    #imginfo(loader.track3d())
+    #print(loader.track3d())
 
     with open("data/trajectory.npy", "wb") as f:
         np.save(f, loader.trajectory)
-    with open("data/trajectory_3d.npy", "wb") as f:
-        np.save(f, loader.trajectory_3d)
+    #with open("data/trajectory_3d.npy", "wb") as f:
+    #    np.save(f, loader.trajectory_3d)
 
     # === Test EpisodeList
     eplist = EpisodeList()

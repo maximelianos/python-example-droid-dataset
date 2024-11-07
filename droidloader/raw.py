@@ -523,6 +523,7 @@ class RawScene:
                     depth_image[depth_image > 1.8] = 0
                     rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
+                    # visualize pcd
                     points = point_cloud[:, :, :3] # cut color from point cloud
                     h, w, _ = points.shape
                     points = points.reshape((h*w, 3)) # make point cloud unordered
@@ -540,6 +541,7 @@ class RawScene:
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
+            return_dict[f"cameras/{camera_name}/depth"] = depth_image
             return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
         return return_dict
 
