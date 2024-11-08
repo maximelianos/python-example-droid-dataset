@@ -507,24 +507,38 @@ class RawScene:
                 self.points.append((x, y, 0))
 
                 point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
-                #rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                #rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
+                rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
 
                 #if self.calc_3d is not None:
                     #rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
                     #rr.log(f'cameras/{camera_name}/mean_3d', rr.Points3D([self.mean_3d], radii=[0.02]))
 
                 # tracked 3d point
-                if self.track_3d is not None:
-                    point: np.ndarray = self.track_3d[traj_ind] # [4, 4] rot + t
-                    t = point[:3, 3] # [3]
-                    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Transform3D(translation=depth_translation, mat3x3=depth_rotation))
-                    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Points3D([t], radii=[0.02]))
-
-
-
+                #if self.track_3d is not None:
+                #    point: np.ndarray = self.track_3d[traj_ind] # [4, 4] rot + t
+                #    t = point[:3, 3] # [3]
+                #    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Transform3D(translation=depth_translation, mat3x3=depth_rotation))
+                #    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Points3D([t], radii=[0.02]))
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
+
+            # === point cloud filtering
+            h, w, _ = point_cloud.shape
+            _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
+            nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
+            _p = _p[~nan_mask, :]
+            _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
+            if self.calc_3d is not None:
+                # cut out sphere
+                _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
+                _p = _p[_mag < 0.3]
+            
+            # subsample with replacement
+            def random_choice(a: np.ndarray, size: int) -> np.ndarray:
+                ind = np.random.randint(0, len(a), size=size)
+                return a[ind]
+            point_cloud = random_choice(_p, 5000)
 
             # Ignore points that are far away.
 
@@ -537,20 +551,7 @@ class RawScene:
                     rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
                     # visualize pcd
-                    points = point_cloud[:, :, :3] # cut color from point cloud
-                    h, w, _ = points.shape
-                    points = points.reshape((h*w, 3)) # make point cloud unordered
-                    nan_mask = np.any(np.isnan(points), axis=1) # remove nan points
-                    points = points[~nan_mask, :]
-                    points = points[np.sum(points ** 2, axis=1) < 1.0] # remove far away points
-                    if self.calc_3d is not None:
-                        # cut out sphere
-                        mag = np.sum((points - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
-                        points = points[mag < 0.3]
-                    u = np.random.uniform(size=(points.shape[0])) # subsample
-                    points = points[u < 1.0 / 10]
-
-                    rr_points = rr.Points3D(positions=points, radii=[0.001])
+                    rr_points = rr.Points3D(positions=point_cloud[:, :3], colors=point_cloud[:, 3], radii=[0.001])
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image

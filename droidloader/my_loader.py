@@ -225,7 +225,7 @@ class DroidLoader:
 
         return trajectory
 
-    def track3d(self):
+    def track_3d(self):
         # Read 2D trajectory, use point cloud, and save 3D trajectory
         trajectory = self.trajectory
         n_steps, _ = trajectory.shape
@@ -283,21 +283,49 @@ class EpisodeList:
         trajectory = F.pad(trajectory, (0, 8, 0, MAX_STEPS-n_steps), "constant", 0)
         trajectory = trajectory.numpy()
 
-        # pcd torch
-        # list[numpy (h, w, XYZ+color)] -> list[torch (h, w, XYZ)]
-        pcds = [torch.from_numpy(pcd[:, :, :3]) for pcd in loader.pcd]
-        pcds = torch.stack(pcds).float() # (n, 720, 1280, XYZ)
-        pcds = pcds[:, ::20, ::20, :]
-        n_steps, h, w, _ = pcds.shape
-        pcds = pcds.reshape(n_steps, h*w, 3) # remove order
-        pcds = pcds[:MAX_STEPS]
-        # don't touch last dimension; pad number of points to 5500; pad steps
-        pcds = F.pad(pcds, (0, 0, 0, 5500-h*w, 0, MAX_STEPS-n_steps), "constant", 0)
-        pcds = pcds.numpy()
+        # === pcd torch
+        # list[numpy(n_points, XYZ+color)] -> list[torch (n_points, XYZ)]
+        # n_points must be same for all pcds
+        _p = [point_cloud[:, :3] for point_cloud in loader.pcd]
+        _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
+
+        def nan_helper(y):
+            """Helper to handle indices and logical indices of NaNs.
+
+            Input:
+                - y, 1d numpy array with possible NaNs
+            Output:
+                - nans, logical indices of NaNs
+                - index, a function, with signature indices= index(logical_indices),
+                to convert logical indices of NaNs to 'equivalent' indices
+            Example:
+                >>> # linear interpolation of NaNs
+                >>> nans, x= nan_helper(y)
+                >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+            """
+
+            return np.isnan(y), lambda z: z.nonzero()[0]
+
+        def nan_filler(y: np.ndarray) -> np.ndarray:
+            """Fill nans along 1st dimension.
+
+            y: (n_steps, ...)
+            """
+            shape = y.shape
+            y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
+            nans, x = nan_helper(y)
+            y[nans] = np.interp(x(nans), x(~nans), y[~nans])
+            y = y.transpose().reshape(shape) # original shape
+            return y
+
+        _p = nan_filler(_p) # fill nans along n_steps dimension
+        _p = _p[:MAX_STEPS] # limit to n_steps
+        pad_width = ((0, MAX_STEPS-len(_p)), (0, 0), (0, 0))
+        pcds = np.pad(_p, pad_width, mode="edge")
 
         sample = {
             "images": images,
-            "pcd_xyz": pcds,
+            "pcd_xyz": pcds, # (n_steps, n_points, XYZ)
             "robot_state": trajectory # (n, 2)
         }
         return sample
@@ -311,7 +339,7 @@ def process_manuals():
         loader = DroidLoader(scene)
         loader.read_trajectory()
         loader.track()
-        print(loader.track3d())
+        print(loader.track_3d())
 
 
 
@@ -348,8 +376,8 @@ def main():
     print("mask")
     imginfo(loader.detection.mask)
     #print("trajectory 3d", end=" ")
-    #imginfo(loader.track3d())
-    #print(loader.track3d())
+    #imginfo(loader.track_3d())
+    #print(loader.track_3d())
 
     print("intrinsics", end=" ")
     print(loader.intrinsics.matrix)
