@@ -61,7 +61,8 @@ def read_episode_date(episode: str):
 
 # === manually selected episodes
 manual_paths: list[str] = []
+manual_dates: list[str] = []
 with open("data/manual_episodes.json", "r") as f:
-    _date_list = json.load(f)
-    manual_paths = [date_to_localpath[date] for date in _date_list]
+    manual_dates = json.load(f)
+    manual_paths = [date_to_localpath[date] for date in manual_dates]
 

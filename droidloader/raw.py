@@ -284,7 +284,7 @@ class RawScene:
         if Path(_trajectory_path).exists():
             with open(_trajectory_path, "rb") as f:
                 self.track_3d = np.load(f)  # (n, 4) - x, y, z, color
-                print("loaded traked 3d trajectory")
+                print("loaded tracked 3d trajectory")
 
 
 
@@ -506,9 +506,11 @@ class RawScene:
                 y, x = self.calc_trajectory[traj_ind]
                 self.points.append((x, y, 0))
 
-                point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
-                rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
+                if self.calc_3d is not None:
+                    #point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
+                    point = self.calc_3d[traj_ind][:3]
+                    rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
+                    rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
 
                 #if self.calc_3d is not None:
                     #rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
@@ -523,7 +525,9 @@ class RawScene:
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
+            full_point_cloud = point_cloud # save original point cloud
             # === point cloud filtering
+
             h, w, _ = point_cloud.shape
             _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
             nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
@@ -548,15 +552,16 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+                    #rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
                     # visualize pcd
-                    rr_points = rr.Points3D(positions=point_cloud[:, :3], colors=point_cloud[:, 3], radii=[0.001])
-                    #rr.log(f"cameras/{camera_name}/pcd", rr_points)
+                    rr_points = rr.Points3D(positions=point_cloud[:, :3], radii=[0.002])
+                    rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
             return_dict[f"cameras/{camera_name}/depth"] = depth_image
-            return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # p[i, j] = (x, y, z, color)
+            return_dict[f"cameras/{camera_name}/full_pcd"] = full_point_cloud # p[i, j] = (x, y, z, color)
+            return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # (n_points, xyz)
         return return_dict
 
     def log_action(self, i: int) -> None:

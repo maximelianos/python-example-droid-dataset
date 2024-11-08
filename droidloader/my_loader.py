@@ -57,6 +57,7 @@ class DroidLoader:
 
         self.rgb = []
         self.depth = []
+        self.full_pcd = []
         self.pcd = []
         self.start = 0
         self.stop = -1
@@ -161,6 +162,7 @@ class DroidLoader:
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
             self.depth.append(images["cameras/ext1/depth"])
+            self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
         self.stop = len(self.rgb)
 
@@ -241,13 +243,49 @@ class DroidLoader:
         self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
         for i, images in enumerate(self._gripper_frames()):
             y, x = trajectory[i]
-            pcd = images["cameras/ext1/pcd"]
-            self.trajectory_3d[i] = pcd[y, x]
+            _pcd = images["cameras/ext1/full_pcd"]
+            self.trajectory_3d[i] = _pcd[y, x]
+        # fill nans
+        def nan_helper(y):
+            """Helper to handle indices and logical indices of NaNs.
+            Input:
+                - y, 1d numpy array with possible NaNs
+            Output:
+                - nans, logical indices of NaNs
+                - index, a function, with signature indices= index(logical_indices),
+                to convert logical indices of NaNs to 'equivalent' indices
+                Example:
+                >>> # linear interpolation of NaNs
+                >>> nans, x= nan_helper(y)
+                >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+            """
+            return np.isnan(y), lambda z: z.nonzero()[0]
+
+        def nan_filler(y: np.ndarray) -> np.ndarray:
+            """Fill nans along 1st dimension.
+
+            y: (n_steps, ...)
+            """
+            shape = y.shape
+            y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
+            nans, x = nan_helper(y)
+            y[nans] = np.interp(x(nans), x(~nans), y[~nans])
+            y = y.transpose().reshape(shape) # original shape
+            return y
+        self.trajectory_3d = nan_filler(self.trajectory_3d)
+
         with open(traj3d_path, "wb") as f:
             np.save(f, self.trajectory_3d)
         with open("data/trajectory_3d.npy", "wb") as f:
             np.save(f, self.trajectory_3d)
         return self.trajectory_3d
+
+    def save_pcd(self):
+        pcd_path = Path("data/trajectory/" + self.episode_date + "_pcd.npy")
+        _p = [point_cloud[:, :3] for point_cloud in self.pcd]
+        _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
+        with open(pcd_path, "wb") as f:
+            np.save(f, _p)
 
 
  
@@ -271,20 +309,18 @@ class EpisodeList:
         images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement (128, 128)
         images = torch.stack(images).float() / 255 # (n, h, w, c)
 
-        # trajectory torch
-        trajectory = torch.from_numpy(loader.trajectory).float()
-        trajectory[:, 0] /= h # [0, h] -> [0, 1]
-        trajectory[:, 1] /= w
-        import torch.nn.functional as F
-        # pad last dimension with 8 values to the right. read torch docs
-        MAX_STEPS = 10
-        trajectory = trajectory[:MAX_STEPS]
-        n_steps, _ = trajectory.shape
-        trajectory = F.pad(trajectory, (0, 8, 0, MAX_STEPS-n_steps), "constant", 0)
-        trajectory = trajectory.numpy()
+        # === trajectory
+        _t = loader.track_3d() # (n_steps, 4)
+        MAX_STEPS = 20
+        _t = _t[:MAX_STEPS, :3] # remove color
+        pad_width = ((0, 0), (0, 7)) # pad robot state
+        _t = np.pad(_t, pad_width, mode="constant")
+        pad_width = ((0, MAX_STEPS-len(_t)), (0, 0)) # pad n_steps
+        trajectory = np.pad(_t, pad_width, mode="edge")
 
-        # === pcd torch
-        # list[numpy(n_points, XYZ+color)] -> list[torch (n_points, XYZ)]
+
+        # === pcd numpy
+        # list[(n_points, XYZ+color)] -> list[(n_points, XYZ)]
         # n_points must be same for all pcds
         _p = [point_cloud[:, :3] for point_cloud in loader.pcd]
         _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
@@ -298,7 +334,7 @@ class EpisodeList:
                 - nans, logical indices of NaNs
                 - index, a function, with signature indices= index(logical_indices),
                 to convert logical indices of NaNs to 'equivalent' indices
-            Example:
+                Example:
                 >>> # linear interpolation of NaNs
                 >>> nans, x= nan_helper(y)
                 >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
@@ -332,7 +368,7 @@ class EpisodeList:
 
 
 def process_manuals():
-    for scene in manual_paths[130:]:
+    for scene in manual_paths[:20]:
         print("=== PROCESSING SCENE", scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
@@ -340,6 +376,7 @@ def process_manuals():
         loader.read_trajectory()
         loader.track()
         print(loader.track_3d())
+        loader.save_pcd()
 
 
 
@@ -375,9 +412,9 @@ def main():
     imginfo(loader.track())
     print("mask")
     imginfo(loader.detection.mask)
-    #print("trajectory 3d", end=" ")
-    #imginfo(loader.track_3d())
-    #print(loader.track_3d())
+    print("trajectory 3d", end=" ")
+    imginfo(loader.track_3d())
+    print(loader.track_3d())
 
     print("intrinsics", end=" ")
     print(loader.intrinsics.matrix)
@@ -385,27 +422,10 @@ def main():
 
     with open("data/trajectory.npy", "wb") as f:
         np.save(f, loader.trajectory)
-    #with open("data/trajectory_3d.npy", "wb") as f:
-    #    np.save(f, loader.trajectory_3d)
-
-    # === Test EpisodeList
-    #eplist = EpisodeList()
-    #sample = eplist[0]
-    #print("rgb batch", end=" ")
-    #imginfo(sample["images"])
-    #print("robot state batch", end=" ")
-    #imginfo(sample["robot_state"])
-
-    # Interface
-    # loader.get_start_stop() -> [int, int]
-    # loader.get_timesteps(n_frames: int) -> list[int]
-    # loader.get_rgb(timestamp) -> np.array
-    # loader.get_depth(timestamp) -> np.array
-    # loader.get_object_mask(timestamp) -> np.array (h, w, 1)
-    # loader.get_goal_mask(int) -> np.array
-    # loader.get_bbox(demo_start: int, "hand_bbox") -> [x_start, x_stop, y_start, y_stop]
+    with open("data/trajectory_3d.npy", "wb") as f:
+        np.save(f, loader.trajectory_3d)
 
 
 if __name__ == "__main__":
-    main()
-    #process_manuals()
+    #main()
+    process_manuals()
