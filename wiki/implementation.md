@@ -1,5 +1,18 @@
 # Implementation and testing
 
+## Run
+
+Compute trajectory DITTO + rerun
+```
+export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
+python -m droidloader.my_loader --sid 0
+python -m droidloader.raw --visualize --sid 0
+```
+Eugenio training
+```
+python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
+```
+
 ## Dataloader implementation
 
 `my_loader.py`
