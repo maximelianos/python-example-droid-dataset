@@ -302,6 +302,7 @@ class RawScene:
         return_dict = {}
 
         for camera_name, camera in self.cameras.items():
+            # camera_name = ext1, ext2, ext3
             # MV
             if camera_name != "ext1":
                 continue
@@ -349,11 +350,11 @@ class RawScene:
             ][f"{self.serial[camera_name]}_estimated_capture"][i]
             rr.set_time_nanos("real_time", time_stamp_camera * int(1e6))
 
-            # === left view
+            # === left view extrinsics
             extrinsics_left = self.trajectory["observation"]["camera_extrinsics"][
                 f"{self.serial[camera_name]}_left"
             ][i]
-            rotation = Rotation.from_euler(
+            left_rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
 
@@ -367,11 +368,11 @@ class RawScene:
                 f"cameras/{camera_name}/left",
                 rr.Transform3D(
                     translation=np.array(extrinsics_left[:3]),
-                    mat3x3=rotation,
+                    mat3x3=left_rotation,
                 ),
             ),
 
-            # MV left projection matrix
+            # MV left world -> pixel matrix
             intr = camera.left_intrinsic_mat  # [3, 3]
             t = np.array(extrinsics_left[:3]) # [3]
             rot = rotation                    # [3, 3]
@@ -380,7 +381,7 @@ class RawScene:
             ext = ext_to_camera(t, rot)
             self.left_proj_mat = intr @ pinhole @ ext
 
-            # === right view
+            # === right view extrinsics
             extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
                 f"{self.serial[camera_name]}_right"
             ][i]
@@ -418,8 +419,8 @@ class RawScene:
             rr.log(
                 f"cameras/{camera_name}/depth",
                 rr.Transform3D(
-                    translation=depth_translation,
-                    mat3x3=depth_rotation,
+                    translation=extrinsics_left[:3],
+                    mat3x3=left_rotation,
                 ),
             ),
 
@@ -528,21 +529,22 @@ class RawScene:
             full_point_cloud = point_cloud # save original point cloud
             # === point cloud filtering
 
-            h, w, _ = point_cloud.shape
-            _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
-            nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
-            _p = _p[~nan_mask, :]
-            _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
             if self.calc_3d is not None:
-                # cut out sphere
-                _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
-                _p = _p[_mag < 0.3]
-            
-            # subsample with replacement
-            def random_choice(a: np.ndarray, size: int) -> np.ndarray:
-                ind = np.random.randint(0, len(a), size=size)
-                return a[ind]
-            point_cloud = random_choice(_p, 5000)
+                print("cut pcd")
+                h, w, _ = point_cloud.shape
+                _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
+                nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
+                _p = _p[~nan_mask, :]
+                _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
+                    # cut out sphere
+                    _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
+                    _p = _p[_mag < 0.3]
+                
+                # subsample with replacement
+                def random_choice(a: np.ndarray, size: int) -> np.ndarray:
+                    ind = np.random.randint(0, len(a), size=size)
+                    return a[ind]
+                point_cloud = random_choice(_p, 5000)
 
             # Ignore points that are far away.
 

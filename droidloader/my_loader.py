@@ -158,13 +158,18 @@ class DroidLoader:
 
     def read_trajectory(self):
         # read all frames into memory...
+        self.rgb = []
+        self.depth = []
+        self.full_pcd = []
+        self.pcd = []
 
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
             self.depth.append(images["cameras/ext1/depth"])
             self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
-        self.stop = len(self.rgb)
+
+       self.stop = len(self.rgb)
 
     def get_start_stop(self) -> tuple[int, int]:
         # last index not included
@@ -281,8 +286,10 @@ class DroidLoader:
         return self.trajectory_3d
 
     def save_pcd(self):
+        # call .read_trajectory before this!
+        # otherwise point cloud will be uncut
         pcd_path = Path("data/trajectory/" + self.episode_date + "_pcd.npy")
-        _p = [point_cloud[:, :3] for point_cloud in self.pcd]
+        _p = [point_cloud[:, :3] for point_cloud in self.pcd] # cut out color
         _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
         with open(pcd_path, "wb") as f:
             np.save(f, _p)
@@ -291,6 +298,8 @@ class DroidLoader:
  
 
 class EpisodeList:
+    # DO NOT USE, SLOW!
+
     def __init__(self):
         # === read list of espisodes which was saved by dirlist.py
         self.path_list = manual_paths
@@ -368,7 +377,7 @@ class EpisodeList:
 
 
 def process_manuals():
-    for scene in manual_paths[:20]:
+    for scene in manual_paths[:5]:
         print("=== PROCESSING SCENE", scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
@@ -376,7 +385,9 @@ def process_manuals():
         loader.read_trajectory()
         loader.track()
         print(loader.track_3d())
+        loader.read_trajectory() # raw.py will cut pcd now
         loader.save_pcd()
+
 
 
 

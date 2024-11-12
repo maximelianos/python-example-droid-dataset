@@ -78,6 +78,12 @@ Debug points
 * No object detected. my_sam.py ok, my_loader.py?
 * Gripper not closed. Not ok!
 
+### Run .trajectory_3D
+
+The result trajectory is `[4, 4]`: `[:3, :3]` rotation + `[:3, 3]` translation relative to camera origin.
+```
+```
+
 ## Rerun
 
 Visualize
