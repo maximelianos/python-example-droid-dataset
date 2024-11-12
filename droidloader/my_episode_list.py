@@ -47,7 +47,7 @@ print("episodes:", len(episodes))
 
 
 def read_episode_date(episode: str):
-    # uuid of episode
+    # read uuid
     json_file = list(Path(episode).glob("*json"))[0]
     with open(json_file, "r") as f:
         metadata = json.load(f)

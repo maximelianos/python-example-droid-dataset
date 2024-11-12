@@ -169,7 +169,7 @@ class DroidLoader:
             self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
 
-       self.stop = len(self.rgb)
+        self.stop = len(self.rgb)
 
     def get_start_stop(self) -> tuple[int, int]:
         # last index not included
@@ -377,14 +377,14 @@ class EpisodeList:
 
 
 def process_manuals():
-    for scene in manual_paths[:5]:
+    for scene in manual_paths[:2]:
         print("=== PROCESSING SCENE", scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
         loader = DroidLoader(scene)
         loader.read_trajectory()
         loader.track()
-        print(loader.track_3d())
+        loader.track_3d() # [4] = XYZ+color
         loader.read_trajectory() # raw.py will cut pcd now
         loader.save_pcd()
 

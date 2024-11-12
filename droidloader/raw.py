@@ -18,7 +18,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import manual_paths
+from .my_episode_list import manual_paths, read_episode_date
 
 
 def ext_to_camera(t, rot):
@@ -197,6 +197,7 @@ class RawScene:
         print("episode", dir_path)
 
         self.dir_path: Path = Path(dir_path)
+        self.episode_date = read_episode_date(self.dir_path)
         # MV
         self.visualize = visualize
 
@@ -261,14 +262,14 @@ class RawScene:
 
         # computed from nick
         self.calc_trajectory = None
-        _trajectory_path = "data/trajectory.npy"
+        _trajectory_path = Path("data/trajectory/" + self.episode_date + "_traj.npy")
         if Path(_trajectory_path).exists():
             with open(_trajectory_path, "rb") as f:
                 self.calc_trajectory = np.load(f)  # (n, 2) - y, x
-                print("loaded tracked trajectory")
+                print("loaded 2d trajectory")
 
         self.calc_3d = None
-        _trajectory_path = "data/trajectory_3d.npy"
+        _trajectory_path = "data/trajectory/" + self.episode_date + "_traj3d.npy"
         if Path(_trajectory_path).exists():
             with open(_trajectory_path, "rb") as f:
                 self.calc_3d = np.load(f)  # (n, 4) - x, y, z, color
@@ -279,12 +280,12 @@ class RawScene:
                 self.mean_3d = np.mean(self.calc_3d[~_nan_mask], axis=0)[:3]
                 print("mean 3d", self.mean_3d)
 
-        self.track_3d = None
-        _trajectory_path = "data/trajectory_track_3d.npy"
-        if Path(_trajectory_path).exists():
-            with open(_trajectory_path, "rb") as f:
-                self.track_3d = np.load(f)  # (n, 4) - x, y, z, color
-                print("loaded tracked 3d trajectory")
+        #self.track_3d = None
+        #_trajectory_path = "data/trajectory_track_3d.npy"
+        #if Path(_trajectory_path).exists():
+        #    with open(_trajectory_path, "rb") as f:
+        #        self.track_3d = np.load(f)  # (n, 4) - x, y, z, color
+        #        print("loaded tracked 3d trajectory")
 
 
 
@@ -375,7 +376,7 @@ class RawScene:
             # MV left world -> pixel matrix
             intr = camera.left_intrinsic_mat  # [3, 3]
             t = np.array(extrinsics_left[:3]) # [3]
-            rot = rotation                    # [3, 3]
+            rot = left_rotation               # [3, 3]
 
             pinhole = np.eye(4)[:3, :4]
             ext = ext_to_camera(t, rot)
@@ -530,16 +531,14 @@ class RawScene:
             # === point cloud filtering
 
             if self.calc_3d is not None:
-                print("cut pcd")
                 h, w, _ = point_cloud.shape
                 _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
                 nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
                 _p = _p[~nan_mask, :]
                 _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
-                    # cut out sphere
-                    _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
-                    _p = _p[_mag < 0.3]
-                
+                # cut out sphere
+                _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
+                _p = _p[_mag < 0.3]
                 # subsample with replacement
                 def random_choice(a: np.ndarray, size: int) -> np.ndarray:
                     ind = np.random.randint(0, len(a), size=size)
