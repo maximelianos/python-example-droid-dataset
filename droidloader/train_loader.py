@@ -12,9 +12,13 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 
 
 class EpisodeList:
-    def __init__(self):
+    def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
-        self.date_list = manual_dates[:20]
+        self.is_train = is_train
+        if is_train:
+            self.date_list = manual_dates[:30]
+        else:
+            self.date_list = manual_dates[30:40]
 
     def __len__(self):
         return len(self.date_list)
@@ -25,9 +29,9 @@ class EpisodeList:
         # === trajectory
         path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")
         _t = load_npy(path) # (n_steps, 4)
-        MAX_STEPS = 10
+        MAX_STEPS = 34
         _t = _t[:MAX_STEPS, :3] # remove color
-        pad = np.array([0.407, -0.652, .639,
+        pad = np.array([0.407, -0.652, .639, # all points have same rotation. Took data from Eugenio
             -0.909,  -0.354,  -0.218, 1.0])
         pad_width = ((0, 0), (0, 7)) # pad robot state
         _t = np.pad(_t, pad_width, mode="constant")

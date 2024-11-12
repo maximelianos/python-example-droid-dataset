@@ -377,7 +377,7 @@ class EpisodeList:
 
 
 def process_manuals():
-    for scene in manual_paths[:2]:
+    for scene in manual_paths[:40]:
         print("=== PROCESSING SCENE", scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
