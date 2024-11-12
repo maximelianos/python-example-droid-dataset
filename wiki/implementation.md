@@ -8,10 +8,19 @@ export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
 python -m droidloader.my_loader --sid 0
 python -m droidloader.raw --visualize --sid 0
 ```
-Eugenio training
+
+Eugenio eval
+```
+python scripts/evaluate.py log_wandb=False env_runner.env_config.vis=True policy.ckpt_name=1717446544-didactic-woodpecker
+```
+
+Eugenio training (to run with DROID data edit `pfp/data/dataset_pcd.py`)
 ```
 python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
 ```
+
+
+
 
 ## Dataloader implementation
 
