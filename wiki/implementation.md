@@ -9,18 +9,35 @@ python -m droidloader.my_loader --sid 0
 python -m droidloader.raw --visualize --sid 0
 ```
 
-Eugenio eval
+## Eugenio training
+
+Test my dataloader: `python -m droidloader.train_loader`
+
+### Dataloader parameters
+
 ```
-python scripts/evaluate.py log_wandb=False env_runner.env_config.vis=True policy.ckpt_name=1717446544-didactic-woodpecker
+conf/train.yaml
+n_obs_steps: 2
+n_pred_steps: 32
+subs_factor: 1, 3
+batch_size: 64, 128
 ```
 
-Eugenio training (to run with DROID data edit `pfp/data/dataset_pcd.py`)
+### Eugenio training (to run with DROID data edit `pfp/data/dataset_pcd.py`)
 ```
 python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
 ```
 
+Use existing checkpoint: `policy.ckpt_name=1731428232-encouraging-basilisk `
 
+Log: `pfp/policy/so3 - logger.log_metrics loss/train/xyz`
 
+### Implementing ReplayBuffer
+
+```
+pcd [n_steps, n_points, 3]
+step_start:step_start+MAX_STEPS + padding by same point until MAX_STEPS
+```
 
 ## Dataloader implementation
 
