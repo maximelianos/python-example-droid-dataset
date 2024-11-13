@@ -553,11 +553,11 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    #rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
                     # visualize pcd
-                    rr_points = rr.Points3D(positions=point_cloud[:, :3], radii=[0.002])
-                    rr.log(f"cameras/{camera_name}/pcd", rr_points)
+                    #rr_points = rr.Points3D(positions=point_cloud[:, :3], radii=[0.002])
+                    #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
             return_dict[f"cameras/{camera_name}/depth"] = depth_image

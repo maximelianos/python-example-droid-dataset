@@ -10,33 +10,41 @@ def load_npy(path: Path):
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-
 class EpisodeList:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
         if is_train:
-            self.date_list = manual_dates[:30]
+            self.date_list = manual_dates[:130]
         else:
-            self.date_list = manual_dates[30:40]
+            self.date_list = manual_dates[130:139]
+        self.MAX_STEPS = 34
 
     def __len__(self):
-        return len(self.date_list)
+        return len(self.date_list) * (self.MAX_STEPS - 1)
 
     def __getitem__(self, idx: int):
-        self.episode_date = self.date_list[idx]
+        # Duplicate each episode by starting from different time.
+        # Number of items is len(date_list) * MAX_STEPS
+        
+        _episode_idx = idx // self.MAX_STEPS
+        _start_step = idx % self.MAX_STEPS
+        #print(_episode_idx, _start_step)
+
+
+        self.episode_date = self.date_list[_episode_idx]
 
         # === trajectory
         path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")
         _t = load_npy(path) # (n_steps, 4)
-        MAX_STEPS = 34
-        _t = _t[:MAX_STEPS, :3] # remove color
+        _start = min(_start_step, len(_t) - 1) # don't cut the beginning too much
+        _t = _t[_start:_start+self.MAX_STEPS, :3] # start from different step, total length < MAX_STEPS, remove color
         pad = np.array([0.407, -0.652, .639, # all points have same rotation. Took data from Eugenio
             -0.909,  -0.354,  -0.218, 1.0])
         pad_width = ((0, 0), (0, 7)) # pad robot state
-        _t = np.pad(_t, pad_width, mode="constant")
+        _t = np.pad(_t, pad_width, mode="constant") # (n_steps, 10)
         _t[:, 3:] = pad.reshape((1, 7))
-        pad_width = ((0, MAX_STEPS-len(_t)), (0, 0)) # pad n_steps
+        pad_width = ((0, self.MAX_STEPS-len(_t)), (0, 0)) # pad n_steps
         trajectory = np.pad(_t, pad_width, mode="edge")
 
 
@@ -76,8 +84,8 @@ class EpisodeList:
             return y
 
         _p = nan_filler(_p) # fill nans along n_steps dimension
-        _p = _p[:MAX_STEPS] # limit to n_steps
-        pad_width = ((0, MAX_STEPS-len(_p)), (0, 0), (0, 0))
+        _p = _p[_start:_start+self.MAX_STEPS] # limit to n_steps
+        pad_width = ((0, self.MAX_STEPS-len(_p)), (0, 0), (0, 0))
         pcds = np.pad(_p, pad_width, mode="edge")
 
         sample = {
@@ -88,13 +96,13 @@ class EpisodeList:
 
 def main():
     # === Test EpisodeList
-    eplist = EpisodeList()
-    for i in range(20):
+    eplist = EpisodeList(is_train=True)
+    for i in range(len(eplist)):
         sample = eplist[i]
-        print("robot state batch", end=" ")
-        imginfo(sample["robot_state"])
-        print("pcd")
-        imginfo(sample["pcd_xyz"])
+        #print("robot state batch", end=" ")
+        #imginfo(sample["robot_state"])
+        #print("pcd")
+        #imginfo(sample["pcd_xyz"])
 
 if __name__ == "__main__":
     main()

@@ -377,8 +377,9 @@ class EpisodeList:
 
 
 def process_manuals():
-    for scene in manual_paths[:40]:
-        print("=== PROCESSING SCENE", scene)
+    print("=== process episodes:", len(manual_paths))
+    for i, scene in enumerate(manual_paths[100:]):
+        print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
         loader = DroidLoader(scene)
