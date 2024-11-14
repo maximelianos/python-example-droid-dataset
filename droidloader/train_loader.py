@@ -14,22 +14,34 @@ class EpisodeList:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
-        if is_train:
-            self.date_list = manual_dates[:130]
+        self.is_test = True
+        if self.is_test:
+            self.date_list = manual_dates[:10]
         else:
-            self.date_list = manual_dates[130:139]
+            if is_train:
+                self.date_list = manual_dates[:130]
+            else:
+                self.date_list = manual_dates[130:139]
+
         self.MAX_STEPS = 34
 
     def __len__(self):
+        if self.is_test:
+            return len(self.date_list)
         return len(self.date_list) * (self.MAX_STEPS - 1)
 
     def __getitem__(self, idx: int):
         # Duplicate each episode by starting from different time.
         # Number of items is len(date_list) * MAX_STEPS
+        print("sample idx", idx)
         
-        _episode_idx = idx // self.MAX_STEPS
-        _start_step = idx % self.MAX_STEPS
-        #print(_episode_idx, _start_step)
+        if self.is_test:
+            _episode_idx = idx
+            _start_step = 0
+        else:
+            _episode_idx = idx // self.MAX_STEPS
+            _start_step = idx % self.MAX_STEPS
+            #print(_episode_idx, _start_step)
 
 
         self.episode_date = self.date_list[_episode_idx]
@@ -87,6 +99,12 @@ class EpisodeList:
         _p = _p[_start:_start+self.MAX_STEPS] # limit to n_steps
         pad_width = ((0, self.MAX_STEPS-len(_p)), (0, 0), (0, 0))
         pcds = np.pad(_p, pad_width, mode="edge")
+
+        if not self.is_train:
+            from .eval_logger import eval_results
+            eval_results.episode_idx = 0 + idx
+            eval_results.my_data = trajectory
+
 
         sample = {
             "pcd_xyz": pcds, # (n_steps, n_points, XYZ)

@@ -8,7 +8,6 @@ import numpy as np
 import skimage
 from skimage import io
 import PIL
-mport torch
 from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
@@ -55,30 +54,39 @@ class DrawTrajectory:
         self.ip = _intrinsics @ _pinhole # (3, 4)
     
     def set_trajectory(self, trajectory: np.ndarray):
+        trajectory = trajectory[:, :4]
+        trajectory[:, 3] = 1
         self.trajectory = trajectory # (n_steps, 4)
 
     def draw(self):
+        points = []
         for i in range(len(self.trajectory)):
             _point_3d = self.trajectory[i] # [X, Y, Z, 1]
             _point_2d = self.ip @ _point_3d # (3, 4) x (4, 1) = (3, 1)
             _point_2d = _point_2d / _point_2d[2] # [x/z, y/z, 1]
             _x, _y = _point_2d[0], _point_2d[1]
-            self.image = draw_sequence(self.image, [(_x, _y, 0)])
+            points.append((_x, _y, 0))
+        self.image = draw_sequence(self.image, points)
 
     def save(self, image_path: str):
          io.imsave(image_path, self.image, quality=90)
 
 
 
-def plot_all_evaluation():
+def plot_all_evaluations():
     trajectory_dir = Path("data/eval/trajectory")
+    plot_dir = Path("data/eval/plot")
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
     for path in sorted(trajectory_dir.iterdir()):
         with open(path, "rb") as f:
             trajectory = np.load(f)
-        episode_date = path.stem
+        episode_date = path.stem.split('_')[0]
         _scene = date_to_localpath[episode_date]
         draw_traj = DrawTrajectory(_scene)
         draw_traj.set_trajectory(trajectory)
         draw_traj.draw()
-        draw_traj.save("data/eval.jpg")
+        draw_traj.save(plot_dir / (episode_date + "_plot.jpg"))
 
+if __name__ == "__main__":
+    plot_all_evaluations()

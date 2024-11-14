@@ -7,7 +7,17 @@ import re
 import datetime
 import numpy as np
 
-from .my_episode_list import manual_paths
+from .my_episode_list import manual_dates
+
+
+
+class EvalResults:
+    def __init__(self):
+        episode_idx: int = None
+        my_data: np.ndarray = None
+        obs: np.ndarray = None
+        pred: np.ndarray = None
+eval_results = EvalResults()
 
 
 
@@ -18,12 +28,10 @@ class EvalLogger:
         self.trajectory: list[np.ndarray] = []
 
     def vis_start(self, episode_idx: int):
-        self.episode_date = manual_paths[episode_idx]
+        self.episode_date = manual_dates[episode_idx]
         self.trajectory = []
 
     def vis_step(self,
-                 robot_state: np.ndarray, 
-                 obs: np.ndarray, 
                  prediction: np.ndarray):
         # collect whole trajectory in list
 
