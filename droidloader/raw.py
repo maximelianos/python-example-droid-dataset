@@ -21,14 +21,14 @@ from .my_image_saver import ImageSaver
 from .my_episode_list import manual_paths, read_episode_date
 
 
-def ext_to_camera(t, rot):
-    # matrix to transform world PoV into camera PoV, C^-1
+def world_to_camera(t, rot):
+    # world 3d - camera 3d, C^-1
     ext = np.eye(4)
     ext[0:3, 0:3] = rot.T
     ext[0:3, 3] = -rot.T @ t
     return ext
 
-def ext_to_world(t, rot):
+def camera_to_world(t, rot):
     # inverse matrix, C
     ext = np.eye(4)
     ext[0:3, 0:3] = rot
@@ -373,14 +373,12 @@ class RawScene:
                 ),
             ),
 
-            # MV left world -> pixel matrix
-            intr = camera.left_intrinsic_mat  # [3, 3]
+            # MV left world 3d -> image 2d
             t = np.array(extrinsics_left[:3]) # [3]
-            rot = left_rotation               # [3, 3]
 
             pinhole = np.eye(4)[:3, :4]
-            ext = ext_to_camera(t, rot)
-            self.left_proj_mat = intr @ pinhole @ ext
+            ext = world_to_camera(t, left_rotation) # t [3], left_rotation [3, 3]
+            self.left_proj_mat = camera.left_intrinsic_mat @ pinhole @ ext # intrinsic [3, 3]
 
             # === right view extrinsics
             extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
@@ -458,11 +456,11 @@ class RawScene:
             self.imsaver.snap("first", left_image) # save first episode image
 
             # finger tip projection
-            point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], world coors
-            point_3d = point_3d / point_3d[3]
+            point_3d = self.finger_tip @ [0, 0, 0, 1] # [4, 4] x [4], finger in world
+            point_3d = point_3d / point_3d[3] # [X, Y, Z, 1]
 
             point_2d = self.left_proj_mat @ point_3d
-            point_2d = point_2d / point_2d[2] # [x*z, y*z, z]
+            point_2d = point_2d / point_2d[2] # [x/z, y/z, 1]
             x, y = point_2d[0], point_2d[1]
             
             # === first touch
@@ -575,7 +573,7 @@ class RawScene:
         # Link to world coordinate
         # Simply robot space
         trans, mat = extract_extrinsics(pose) # [3], [3, 3]
-        self.world_pos_3d = ext_to_world(trans, mat) # [4, 4]
+        self.world_pos_3d = camera_to_world(trans, mat) # [4, 4]
         # END MV
         
         pose = self.trajectory['action']['cartesian_position'][i]

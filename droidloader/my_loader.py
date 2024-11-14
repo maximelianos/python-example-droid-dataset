@@ -2,21 +2,15 @@
 # return frames during grip.
 # Pytorch dataloader class.
 
-import numpy as np
 from pathlib import Path
-import rerun as rr
-import cv2
-from scipy.spatial.transform import Rotation
-from skimage import io
-import glob
-import h5py
 import json
 import argparse
-import PIL
 import re
-import datetime as dt
+import datetime
+import numpy as np
 
-import torch
+import PIL
+mport torch
 from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
@@ -71,8 +65,8 @@ class DroidLoader:
 
         # dig out intrinsic from ZED
         _camera = self.raw_scene.cameras["ext1"]
-        _left_intrinsic: np.ndarray = _camera.left_intrinsic_mat
-        self.intrinsics = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsic)
+        _left_intrinsics: np.ndarray = _camera.left_intrinsic_mat
+        self.intrinsics = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsics)
 
         # === check if detection was already performed
         episode_date: str = scene_to_date(scene)
