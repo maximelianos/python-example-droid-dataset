@@ -16,7 +16,7 @@ class EpisodeList:
         self.is_train = is_train
         self.is_test = True
         if self.is_test:
-            self.date_list = manual_dates[:10]
+            self.date_list = manual_dates[130:]
         else:
             if is_train:
                 self.date_list = manual_dates[:130]
@@ -102,7 +102,7 @@ class EpisodeList:
 
         if not self.is_train:
             from .eval_logger import eval_results
-            eval_results.episode_idx = 0 + idx
+            eval_results.episode_idx = 130 + idx
             eval_results.my_data = trajectory
 
 
