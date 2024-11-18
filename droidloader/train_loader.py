@@ -1,3 +1,4 @@
+from typing import is_typeddict
 import numpy as np
 from pathlib import Path
 from .my_episode_list import manual_dates
@@ -16,19 +17,21 @@ class EpisodeList:
         self.is_train = is_train
         self.is_test = True
         if self.is_test:
-            self.date_list = manual_dates[130:]
+            self.ind_list = range(0, 10)
         else:
             if is_train:
-                self.date_list = manual_dates[:130]
+                self.ind_list = range(0, 130)
             else:
-                self.date_list = manual_dates[130:139]
+                self.ind_list = range(130, 139)
+        self.date_list = [manual_dates[i] for i in self.ind_list]
 
         self.MAX_STEPS = 34
 
     def __len__(self):
         if self.is_test:
             return len(self.date_list)
-        return len(self.date_list) * (self.MAX_STEPS - 1)
+        else:
+            return len(self.date_list) * (self.MAX_STEPS - 1)
 
     def __getitem__(self, idx: int):
         # Duplicate each episode by starting from different time.
@@ -43,7 +46,7 @@ class EpisodeList:
             _start_step = idx % self.MAX_STEPS
             #print(_episode_idx, _start_step)
 
-
+        self.manual_idx = self.ind_list[_episode_idx]
         self.episode_date = self.date_list[_episode_idx]
 
         # === trajectory
@@ -100,11 +103,10 @@ class EpisodeList:
         pad_width = ((0, self.MAX_STEPS-len(_p)), (0, 0), (0, 0))
         pcds = np.pad(_p, pad_width, mode="edge")
 
-        if not self.is_train:
+        if self.is_test:
             from .eval_logger import eval_results
-            eval_results.episode_idx = 130 + idx
+            eval_results.episode_idx = self.manual_idx
             eval_results.my_data = trajectory
-
 
         sample = {
             "pcd_xyz": pcds, # (n_steps, n_points, XYZ)
