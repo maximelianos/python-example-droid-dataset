@@ -9,11 +9,11 @@ python -m droidloader.my_loader --sid 0
 python -m droidloader.raw --visualize --sid 0
 ```
 
-## Eugenio training
+## Eugenio
 
-Test my dataloader: `python -m droidloader.train_loader`
+Test npy-only dataloader: `python -m droidloader.train_loader`
 
-### Dataloader parameters
+### Configuration
 
 ```
 conf/train.yaml
@@ -23,23 +23,71 @@ subs_factor: 1, 3
 batch_size: 64, 128
 ```
 
-### Eugenio training (to run with DROID data edit `pfp/data/dataset_pcd.py`)
+### Plot evaluation
+
+```
+- pfp/data/dataset_pcd
+  is_test = True
+  train_len = 1
+  batchsize = 1
+- train_loader
+  is_test = True
+python scripts/evaluate.py log_wandb=False env_runner.env_config.vis=False policy.ckpt_name=1731491805-acoustic-bee
+python -m droidloader.draw_trajectory
+```
+
+Implementation:
+```
+EvalResults - global buffer...
+
+robot_state: numpy (10)
+obs: (4096, 3)
+predict: numpy (51, 32, 10) - (K, pred_steps, robot_state)
+```
+
+Project 3D to image:
+
+```
+point_3d [X, Y, Z, 1] (4, 1)
+pinhole = np.eye(4)[:3, :4]
+intrinsic (3, 3)
+point_2d = intrinsic @ pinhole @ point_3d # homogenous (3, 1)
+point_2d = point_2d / point_2d[2] # [x/z, y/z, 1] = [x, y, z]
+x, y = point_2d[0], point_2d[1]
+```
+
+### Plan
+
+1. Run Eugenio evaluation at `pfp / envs / rlbench_runner.py`
+2. Use `eval_logger` to save trajectory to npy
+3. Plot all with `python -m droidloader.draw_trajectory`
+
+### Eugenio training
+
+(to run with DROID data edit `pfp/data/dataset_pcd.py`)
 ```
 python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
 ```
 
-Use existing checkpoint: `policy.ckpt_name=1731428232-encouraging-basilisk `
+* Use existing checkpoint: `policy.ckpt_name=1731428232-encouraging-basilisk `
+* Continue training: `+run_name=1731491805-acoustic-bee`
+* Log: `pfp/policy/so3 - logger.log_metrics loss/train/xyz`
 
-Log: `pfp/policy/so3 - logger.log_metrics loss/train/xyz`
+Model arch: `pfp / policy / fm_so3_policy`
 
-### Implementing ReplayBuffer
+Implemented ReplayBuffer
 
 ```
 pcd [n_steps, n_points, 3]
 step_start:step_start+MAX_STEPS + padding by same point until MAX_STEPS
 ```
 
-## Dataloader implementation
+### Plan
+
+1. Input: sequence of rgb [batch, n, c, h, w] + seq of points [batch, n, 2] (x, y), later - object mask, text
+2. Output: 2D point in next 30 frames [batch, 30, 2] (x, y)
+
+## Single loader
 
 `my_loader.py`
 * Select episodes manually by deleting pictures, save to `data/manual_episodes.json` in format `2023-10-27-19h-48m-17s`
@@ -53,6 +101,21 @@ $ python -m droidloader.my_loader --scene data/droid_raw/1.0.1/success/2023-10-2
 ```
 
 ## Episode selection
+
+```
+Variant Marker
+filter "marker"
+- reject if
+  len > 60 or
+  r"(take|remove|from).*(cup|mug|pot|bowl)" or
+  r"move.*(forward|backwards|left|right)"
+
+Variant Block
+filter "block"
+- reject if 
+  len > 60 or
+  r"(close|drawer)"
+```
 
 Good examples
 * ind 34098, local ind 810, AUTOLab+0d4edc83+2023-10-27-19h-48m-17s
@@ -70,6 +133,17 @@ Bad examples
 Unsure
 * RAIL+d027f2ae+2023-10-09-11h-05m-13s | Put the yellow block in the red bowl 
 * AUTOLab+5d05c5aa+2023-10-14-21h-42m-30s | Put the yellow, blue, red and green lego bricks in the bowl
+
+### Data structure
+
+```
+--- data/manual_episodes.json
+date "2023-03-02-15h-14m-31s"
+uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s"
+path IRIS/success/(date)/(time)
+```
+
+
 
 ## DITTO
 
@@ -97,9 +171,7 @@ Debug points
 
 ### Run .trajectory_3D
 
-The result trajectory is `[4, 4]`: `[:3, :3]` rotation + `[:3, 3]` translation relative to camera origin.
-```
-```
+The result trajectory is [4, 4] - [:3, :3] rotation + [:3, 3] translation relative to camera origin.
 
 ## Rerun
 
