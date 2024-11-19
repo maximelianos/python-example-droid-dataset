@@ -68,9 +68,9 @@ with open("data/manual_episodes.json", "r") as f:
     manual_paths = [date_to_localpath[date] for date in manual_dates]
 
 np.random.seed(0)
-_idx = np.random.permutation(20) # 140
-train_idx = _idx[:15]
-val_idx = _idx[15:]
+_idx = np.random.permutation(139) # 140
+train_idx = _idx[:120]
+val_idx = _idx[120:]
 
 
 # subsample with replacement
