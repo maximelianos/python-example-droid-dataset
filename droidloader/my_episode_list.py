@@ -33,18 +33,18 @@ annotations: dict[str, dict[str, str]]
 with open(_target_dir / _annotations_file_name) as f:
     annotations = json.load(f)
 
-# list of available episodes
-episodes: list[str] = []
-for date in sorted((_target_dir / "success").iterdir()):
-    for episode in sorted(date.iterdir()):
-        # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
-        # .    .         .     .       date       episode
-        episodes.append(str(episode))
-episodes = episodes[:10]
+# === list of available episodes
+# episodes: list[str] = []
+# for date in sorted((_target_dir / "success").iterdir()):
+#     for episode in sorted(date.iterdir()):
+#         # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
+#         # .    .         .     .       date       episode
+#         episodes.append(str(episode))
+# episodes = episodes[:10]
 
-for i, episode in enumerate(episodes):
-    print(f"{i: >4}", episode)
-print("episodes:", len(episodes))
+# for i, episode in enumerate(episodes):
+#     print(f"{i: >4}", episode)
+# print("episodes:", len(episodes))
 
 
 def read_episode_date(episode: str):
@@ -68,9 +68,9 @@ with open("data/manual_episodes.json", "r") as f:
     manual_paths = [date_to_localpath[date] for date in manual_dates]
 
 np.random.seed(0)
-_idx = np.random.permutation(len(manual_dates))
-train_idx = _idx[:120]
-val_idx = _idx[120:]
+_idx = np.random.permutation(20) # 140
+train_idx = _idx[:15]
+val_idx = _idx[15:]
 
 
 # subsample with replacement

@@ -15,7 +15,7 @@ class EpisodeList:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
-        self.is_test = True
+        self.is_test = False
         if self.is_test:
             self.ind_list = val_idx
         else:
@@ -36,7 +36,8 @@ class EpisodeList:
     def __getitem__(self, idx: int):
         # Duplicate each episode by starting from different time.
         # Number of items is len(date_list) * MAX_STEPS
-        print("sample idx", idx)
+        
+        #print("sample idx", idx)
         
         if self.is_test:
             _episode_idx = idx

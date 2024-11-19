@@ -10,12 +10,12 @@ import datetime
 import numpy as np
 
 import PIL
-mport torch
+import torch
 from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
-import my_episode_list
+from . import my_episode_list
 from .my_episode_list import manual_paths
 
 # Copied from imitation_flow_nick.ipynb
@@ -304,7 +304,7 @@ class DroidLoader:
 
 def process_manuals():
     print("=== process episodes:", len(manual_paths))
-    for i, scene in enumerate(manual_paths[100:]):
+    for i, scene in enumerate(manual_paths[19:]):
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
@@ -312,7 +312,7 @@ def process_manuals():
         loader.read_trajectory()
         loader.track()
         loader.track_3d() # [4] = XYZ+color
-        loader.read_trajectory() # raw.py will cut pcd now
+        #loader.read_trajectory() # raw.py will cut pcd now
         loader.save_pcd()
 
 
