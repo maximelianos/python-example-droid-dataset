@@ -15,6 +15,7 @@ from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
+import my_episode_list
 from .my_episode_list import manual_paths
 
 # Copied from imitation_flow_nick.ipynb
@@ -135,6 +136,10 @@ class DroidLoader:
 
             # read frame
             images: dict = self.raw_scene.log_cameras_next(i)
+
+            # save first image
+            if i == 0:
+                self.frame_0 = images
 
             # ban gripper closing for the second time
             if self.raw_scene.gripper_close_count > 1:
@@ -282,92 +287,19 @@ class DroidLoader:
     def save_pcd(self):
         # call .read_trajectory before this!
         # otherwise point cloud will be uncut
+        
+        # first frame 
+        _p0 = self.frame_0["cameras/ext1/pcd"][:, :3] # cut out color
+
         pcd_path = Path("data/trajectory/" + self.episode_date + "_pcd.npy")
-        _p = [point_cloud[:, :3] for point_cloud in self.pcd] # cut out color
+        _p: list = []
+        for point_cloud in self.pcd:
+            point_cloud = np.concatenate((point_cloud[:, :3], _p0), axis=0) # cut out color
+            point_cloud = my_episode_list.random_choice(point_cloud, 5000)
+            _p.append(point_cloud)
         _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
         with open(pcd_path, "wb") as f:
             np.save(f, _p)
-
-
- 
-
-class EpisodeList:
-    # DO NOT USE, SLOW!
-
-    def __init__(self):
-        # === read list of espisodes which was saved by dirlist.py
-        self.path_list = manual_paths
-
-    def __getitem__(self, idx: int):
-        loader = DroidLoader(self.path_list[idx])
-        loader.read_trajectory()
-        loader.track()
-
-        # all images in episode torch
-        images = [torch.from_numpy(image) for image in loader.rgb] # list[torch (h, w, c)]
-        h, w, c = images[0].shape
-        print("image")
-        imginfo(images[0])
-        images = [image.permute(2, 0, 1) for image in images] # list[torch (c, h, w)]
-        images = [v2.Resize(size=(128, 128))(image).permute(1, 2, 0) for image in images] # backbone requirement (128, 128)
-        images = torch.stack(images).float() / 255 # (n, h, w, c)
-
-        # === trajectory
-        _t = loader.track_3d() # (n_steps, 4)
-        MAX_STEPS = 20
-        _t = _t[:MAX_STEPS, :3] # remove color
-        pad_width = ((0, 0), (0, 7)) # pad robot state
-        _t = np.pad(_t, pad_width, mode="constant")
-        pad_width = ((0, MAX_STEPS-len(_t)), (0, 0)) # pad n_steps
-        trajectory = np.pad(_t, pad_width, mode="edge")
-
-
-        # === pcd numpy
-        # list[(n_points, XYZ+color)] -> list[(n_points, XYZ)]
-        # n_points must be same for all pcds
-        _p = [point_cloud[:, :3] for point_cloud in loader.pcd]
-        _p: np.ndarray = np.stack(_p) # (n_steps, n_points, XYZ)
-
-        def nan_helper(y):
-            """Helper to handle indices and logical indices of NaNs.
-
-            Input:
-                - y, 1d numpy array with possible NaNs
-            Output:
-                - nans, logical indices of NaNs
-                - index, a function, with signature indices= index(logical_indices),
-                to convert logical indices of NaNs to 'equivalent' indices
-                Example:
-                >>> # linear interpolation of NaNs
-                >>> nans, x= nan_helper(y)
-                >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
-            """
-
-            return np.isnan(y), lambda z: z.nonzero()[0]
-
-        def nan_filler(y: np.ndarray) -> np.ndarray:
-            """Fill nans along 1st dimension.
-
-            y: (n_steps, ...)
-            """
-            shape = y.shape
-            y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
-            nans, x = nan_helper(y)
-            y[nans] = np.interp(x(nans), x(~nans), y[~nans])
-            y = y.transpose().reshape(shape) # original shape
-            return y
-
-        _p = nan_filler(_p) # fill nans along n_steps dimension
-        _p = _p[:MAX_STEPS] # limit to n_steps
-        pad_width = ((0, MAX_STEPS-len(_p)), (0, 0), (0, 0))
-        pcds = np.pad(_p, pad_width, mode="edge")
-
-        sample = {
-            "images": images,
-            "pcd_xyz": pcds, # (n_steps, n_points, XYZ)
-            "robot_state": trajectory # (n, 2)
-        }
-        return sample
 
 
 def process_manuals():
@@ -382,8 +314,6 @@ def process_manuals():
         loader.track_3d() # [4] = XYZ+color
         loader.read_trajectory() # raw.py will cut pcd now
         loader.save_pcd()
-
-
 
 
 def main():

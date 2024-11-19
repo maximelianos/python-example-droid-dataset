@@ -11,3 +11,7 @@ print("index", ind)
 print("samples")
 print(embeddings[ind, :])
 
+# split into train and validation
+ind = np.random.permutation(10)
+print("train:", ind[0:7])
+print("validation:", ind[7:10])

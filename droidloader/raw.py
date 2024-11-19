@@ -18,7 +18,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import manual_paths, read_episode_date
+from .my_episode_list import manual_paths, read_episode_date, random_choice
 
 
 def world_to_camera(t, rot):
@@ -537,10 +537,7 @@ class RawScene:
                 # cut out sphere
                 _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
                 _p = _p[_mag < 0.3]
-                # subsample with replacement
-                def random_choice(a: np.ndarray, size: int) -> np.ndarray:
-                    ind = np.random.randint(0, len(a), size=size)
-                    return a[ind]
+
                 point_cloud = random_choice(_p, 5000)
 
             # Ignore points that are far away.

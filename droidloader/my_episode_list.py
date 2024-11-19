@@ -4,6 +4,7 @@
 from pathlib import Path
 import json
 import re
+import numpy as np
 
 # === existing episodes
 with open("data/existing_episodes.json") as f:
@@ -65,4 +66,16 @@ manual_dates: list[str] = []
 with open("data/manual_episodes.json", "r") as f:
     manual_dates = json.load(f)
     manual_paths = [date_to_localpath[date] for date in manual_dates]
+
+np.random.seed(0)
+_idx = np.random.permutation(len(manual_dates))
+train_idx = _idx[:120]
+val_idx = _idx[120:]
+
+
+# subsample with replacement
+def random_choice(a: np.ndarray, size: int) -> np.ndarray:
+    # a has shape [n_vectors, ...]
+    ind = np.random.randint(0, len(a), size=size)
+    return a[ind]
 

@@ -1,7 +1,7 @@
 from typing import is_typeddict
 import numpy as np
 from pathlib import Path
-from .my_episode_list import manual_dates
+from .my_episode_list import manual_dates, train_idx, val_idx
 
 def load_npy(path: Path):
     if not path.exists():
@@ -17,12 +17,12 @@ class EpisodeList:
         self.is_train = is_train
         self.is_test = True
         if self.is_test:
-            self.ind_list = range(0, 10)
+            self.ind_list = val_idx
         else:
             if is_train:
-                self.ind_list = range(0, 130)
+                self.ind_list = train_idx
             else:
-                self.ind_list = range(130, 139)
+                self.ind_list = val_idx
         self.date_list = [manual_dates[i] for i in self.ind_list]
 
         self.MAX_STEPS = 34
