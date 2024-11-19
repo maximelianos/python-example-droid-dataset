@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru"><head>
+  <meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+  <link href="common.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+
+<h2>Octagon SSHFS</h2>
+
+<p>Where are two types of machines, those accessible over torque and those over ssh.<br>
+Atm it's probably easier to use the ssh machines, e.g. ducky or bud IIRC.</p>
+
+<a href="https://lmb.informatik.uni-freiburg.de/interna/lmbwiki/">Cluster guide</a>
+<p>user: open passwd: thebox</p>
+
+<pre>
+ssh velikanm@lmblogin.informatik.uni-freiburg.de -p 2122
+# hint: sshfs phoenixnap  
+sshfs -p 2122 velikanm@lmblogin.informatik.uni-freiburg.de:/misc/lmbraid19/argusm/CLUSTER/octagon /mnt/lmb
+
+sudo sshfs -p 2122 -o allow_other,follow_symlinks argusm@lmblogin.informatik.uni-freiburg.de:/home/argusm/ /mnt/lmb
+</pre>
+
+Compute space: <pre>du -Pks * .[^.]* | sort -n</pre>
+
+<h3>Computer Vision instructions</h3>
+
+<pre>
+ssh velikanm@login.informatik.uni-freiburg.de
+cd /project/cv-ws2425/velikanm
+Problems: http://poolmgr.informatik.uni-freiburg.de
+
+ssh-keygen # /home/velikanm/.ssh/tf_rsa
+ssh-copy-id -i /home/velikanm/.ssh/tf_rsa lmb@login.informatik.uni-freiburg.de
+ssh -i /home/velikanm/.ssh/tf_rsa lmb@login.informatik.uni-freiburg.de
+
+# Append the following to your ssh config (located at .ssh/config):
+Host tflogin
+HostName login.informatik.uni-freiburg.de
+User username # put your username
+Identityfile /home/username/.ssh/tf_rsa
+Port 22
+
+Connect to login server. Don't run anything on this server!
+$ ssh tflogin
+$ ssh tfpool53 (from login server)
+
+# Append the following to your ssh config (located at .ssh/config):
+Host tfpool53
+HostName tfpool53
+ProxyJump tflogin
+User username # put your username
+Identityfile /home/username/.ssh/tf_rsa
+Port 22
+# note: you have to add this for each tfpool machine that you want to use
+
+$ GPU load: nvidia-smi
+$ logged in accounts: who
+$ running processes: top
+
+</pre>
+
+<h2>References</h2>
+<ul>
+</ul>
+
+</body>
+</html>
