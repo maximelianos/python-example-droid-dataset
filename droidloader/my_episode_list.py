@@ -6,6 +6,8 @@ import json
 import re
 import numpy as np
 
+imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
+
 # === existing episodes
 with open("data/existing_episodes.json") as f:
     existing_episodes = json.load(f)

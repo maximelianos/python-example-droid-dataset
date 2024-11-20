@@ -198,12 +198,16 @@ class RawScene:
         # trajectory_3d: (n_steps, 3) visualize external trajectory
 
         print("episode", dir_path)
-
         self.dir_path: Path = Path(dir_path)
         self.episode_date = read_episode_date(self.dir_path)
         # MV
         self.visualize = visualize
         self.trajectory_3d = trajectory_3d
+
+        # === init rerun
+        if self.visualize:
+            rr.spawn()
+        #    rr.init("DROID-visualized", spawn=visualize) # mv_blueprint
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
         if len(json_file_paths) < 1:
@@ -284,6 +288,11 @@ class RawScene:
                 self.mean_3d = np.mean(self.calc_3d[~_nan_mask], axis=0)[:3]
                 print("mean 3d", self.mean_3d)
 
+        # show episode
+        if self.visualize:
+            rr.send_blueprint(blueprint_raw())
+            urdf_logger = URDFLogger("franka_description/panda.urdf")
+            self.log(urdf_logger)
 
 
     def log_cameras_next(self, i: int) -> None:
@@ -495,9 +504,10 @@ class RawScene:
             # left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # track point
+            MAX_STEPS = 34
             if (self.calc_2d is not None and
                 self.first_touch != -1 and
-                i - self.first_touch < self.calc_2d.shape[0]
+                i - self.first_touch < min(MAX_STEPS, self.calc_2d.shape[0])
             ):
                 traj_ind = i - self.first_touch
                 y, x = self.calc_2d[traj_ind]
@@ -507,12 +517,14 @@ class RawScene:
                     #point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
                     point = self.calc_3d[traj_ind][:3]
                     rr.log(f'cameras/{camera_name}/calc_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                    rr.log(f'cameras/{camera_name}/calc_3d', rr.Points3D([point], radii=[0.02]))
+                    blue = [0, 0, 255, 255]
+                    rr.log(f'cameras/{camera_name}/calc_3d', rr.Points3D([point], colors=blue, radii=[0.02]))
 
                 if self.trajectory_3d is not None:
                     point = self.trajectory_3d[traj_ind][:3]
                     rr.log(f'cameras/{camera_name}/pred_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], radii=[0.02]))
+                    red = [255, 0, 0, 255]
+                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], colors=red, radii=[0.02]))
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
@@ -539,7 +551,7 @@ class RawScene:
 
                 if depth_image is not None:
                     depth_image[depth_image > 1.8] = 0
-                    #rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
+                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(depth_image, depth_range=(0, 1)) )
 
                     # visualize pcd
                     #rr_points = rr.Points3D(positions=point_cloud[:, :3], radii=[0.002])

@@ -5,6 +5,7 @@ import re
 import datetime
 import numpy as np
 
+import rerun as rr
 import skimage
 from skimage import io
 import PIL
@@ -92,7 +93,7 @@ def plot_2d_evaluation():
             plotter = DrawTrajectory(_scene)
             plotter.set_trajectory(trajectory)
             plotter.draw()
-            plotter.save(train_dir / (_episode_date + ".jpg"))
+            plotter.save(train_dir / (f"{i:03d}" + ".jpg"))
     print("plot val")
     for i in val_idx:
         _episode_date: str = manual_dates[i]
@@ -105,18 +106,47 @@ def plot_2d_evaluation():
             plotter = DrawTrajectory(_scene)
             plotter.set_trajectory(trajectory)
             plotter.draw()
-            plotter.save(val_dir / (_episode_date + ".jpg"))
+            plotter.save(val_dir / (f"{i:03d}" + ".jpg"))
 
 def rerun_evaluation():
-    selected_sid = [0]
+    selected_sid = range(0, 50, 4)
+    rr.init("DROID-visualized", spawn=True) # MV
     for sid in selected_sid:
+        print("=== Visualising episode index", sid)
+        input()
         _episode_date = manual_dates[sid]
         _path = Path("data/eval/trajectory") / (_episode_date + ".npy")
         with open(_path, "rb") as f:
             trajectory = np.load(f)
+        # try:
         _ = RawScene(manual_paths[sid], True, trajectory)
+        # except Exception as e:
+        #     print("Error in raw.py:", repr(e))
+
+def plot_depth():
+    from .my_episode_list import imginfo
+    selected_sid = range(139)
+    Path("data/depth_plot").mkdir(exist_ok=True)
+    for sid in selected_sid:
+        _episode_date = manual_dates[sid]
+        _path = Path("data/trajectory") / (_episode_date + "_traj3d.npy") # (n_steps, 4)
+        with open(_path, "rb") as f:
+            trajectory = np.load(f)
+        trajectory = trajectory[:, :3]
+        _d = (trajectory ** 2).sum(axis=1)
+
+        import matplotlib.pyplot as plt
+        fig, axs = plt.subplots(1, 1, figsize=(9, 3))
+        t = range(0, len(_d))
+        data = _d
+        axs.plot(t, data, ".-")
+        axs.set_xlabel("Step")
+        axs.set_ylabel("Distance")
+        plt.savefig("data/depth_plot/" + f"{sid:03d}" + ".jpg", dpi=150)
+        # input()
 
 
 if __name__ == "__main__":
-    plot_2d_evaluation()
-    rerun_evaluation()
+    #plot_2d_evaluation()
+    #rerun_evaluation()
+    plot_depth()

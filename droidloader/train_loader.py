@@ -15,40 +15,41 @@ class EpisodeList:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
-        self.is_test = False
+        self.is_test = True
         if self.is_test:
-            self.ind_list = val_idx
+            if self.is_train:
+                self.ind_list = []
+            else:
+                self.ind_list = np.concatenate((train_idx, val_idx))
         else:
             if is_train:
                 self.ind_list = train_idx
             else:
                 self.ind_list = val_idx
-        self.date_list = [manual_dates[i] for i in self.ind_list]
 
         self.MAX_STEPS = 34
 
     def __len__(self):
         if self.is_test:
-            return len(self.date_list)
+            return len(self.ind_list)
         else:
-            return len(self.date_list) * (self.MAX_STEPS - 1)
+            return len(self.ind_list) * (self.MAX_STEPS - 1)
 
     def __getitem__(self, idx: int):
         # Duplicate each episode by starting from different time.
-        # Number of items is len(date_list) * MAX_STEPS
+        # Number of items is len(ind_list) * MAX_STEPS
         
         #print("sample idx", idx)
         
         if self.is_test:
-            _episode_idx = idx
+            _shuffle_idx = idx
             _start_step = 0
         else:
-            _episode_idx = idx // self.MAX_STEPS
+            _shuffle_idx = idx // self.MAX_STEPS
             _start_step = idx % self.MAX_STEPS
-            #print(_episode_idx, _start_step)
 
-        self.manual_idx = self.ind_list[_episode_idx]
-        self.episode_date = self.date_list[_episode_idx]
+        self.manual_idx = self.ind_list[_shuffle_idx]
+        self.episode_date = manual_dates[self.manual_idx]
 
         # === trajectory
         path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")

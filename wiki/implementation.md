@@ -27,8 +27,6 @@ batch_size: 64, 128
 
 ```
 - pfp/data/dataset_pcd
-  is_test = True
-  train_len = 1
   batchsize = 1
 - train_loader
   is_test = True
