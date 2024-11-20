@@ -42,7 +42,7 @@ class EvalLogger:
 
         self.trajectory = np.stack(self.trajectory)
 
-        _trajectory_path = Path(self.save_dir + "/" + self.episode_date + "_traj.npy")
+        _trajectory_path = Path(self.save_dir + "/" + self.episode_date + ".npy")
         _trajectory_path.parent.mkdir(parents=True, exist_ok=True)
         with open(_trajectory_path, "wb") as f:
             np.save(f, self.trajectory)

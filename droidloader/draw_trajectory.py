@@ -12,7 +12,7 @@ from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
-from .my_episode_list import manual_paths, date_to_localpath
+from .my_episode_list import manual_paths, date_to_localpath, manual_dates, train_idx, val_idx
 
 def draw_sequence(image: np.ndarray, points: list):
     """
@@ -73,20 +73,50 @@ class DrawTrajectory:
 
 
 
-def plot_all_evaluations():
+def plot_2d_evaluation():
     trajectory_dir = Path("data/eval/trajectory")
-    plot_dir = Path("data/eval/plot")
-    plot_dir.mkdir(parents=True, exist_ok=True)
+    train_dir = Path("data/eval/train")
+    val_dir = Path("data/eval/val")
+    train_dir.mkdir(parents=True, exist_ok=True)
+    val_dir.mkdir(parents=True, exist_ok=True)
 
-    for path in sorted(trajectory_dir.iterdir()):
-        with open(path, "rb") as f:
+    print("plot train")
+    for i in train_idx:
+        _episode_date: str = manual_dates[i]
+        _path = trajectory_dir / (_episode_date + ".npy")
+        if _path.exists():
+            print("train ", i)
+            with open(_path, "rb") as f:
+                trajectory = np.load(f)
+            _scene = date_to_localpath[_episode_date]
+            plotter = DrawTrajectory(_scene)
+            plotter.set_trajectory(trajectory)
+            plotter.draw()
+            plotter.save(train_dir / (_episode_date + ".jpg"))
+    print("plot val")
+    for i in val_idx:
+        _episode_date: str = manual_dates[i]
+        _path = trajectory_dir / (_episode_date + ".npy")
+        if _path.exists():
+            print("val ", i)
+            with open(_path, "rb") as f:
+                trajectory = np.load(f)
+            _scene = date_to_localpath[_episode_date]
+            plotter = DrawTrajectory(_scene)
+            plotter.set_trajectory(trajectory)
+            plotter.draw()
+            plotter.save(val_dir / (_episode_date + ".jpg"))
+
+def rerun_evaluation():
+    selected_sid = [0]
+    for sid in selected_sid:
+        _episode_date = manual_dates[sid]
+        _path = Path("data/eval/trajectory") / (_episode_date + ".npy")
+        with open(_path, "rb") as f:
             trajectory = np.load(f)
-        episode_date = path.stem.split('_')[0]
-        _scene = date_to_localpath[episode_date]
-        draw_traj = DrawTrajectory(_scene)
-        draw_traj.set_trajectory(trajectory)
-        draw_traj.draw()
-        draw_traj.save(plot_dir / (episode_date + "_plot.jpg"))
+        _ = RawScene(manual_paths[sid], True, trajectory)
+
 
 if __name__ == "__main__":
-    plot_all_evaluations()
+    plot_2d_evaluation()
+    rerun_evaluation()

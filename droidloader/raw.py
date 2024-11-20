@@ -192,14 +192,18 @@ class RawScene:
 
     def __init__(self,
                  dir_path: str,
-                 visualize: bool
+                 visualize: bool,
+                 trajectory_3d: np.ndarray = None,
             ):
+        # trajectory_3d: (n_steps, 3) visualize external trajectory
+
         print("episode", dir_path)
 
         self.dir_path: Path = Path(dir_path)
         self.episode_date = read_episode_date(self.dir_path)
         # MV
         self.visualize = visualize
+        self.trajectory_3d = trajectory_3d
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
         if len(json_file_paths) < 1:
@@ -261,11 +265,11 @@ class RawScene:
         self.imsaver: ImageSaver = ImageSaver()
 
         # computed from nick
-        self.calc_trajectory = None
+        self.calc_2d = None
         _trajectory_path = Path("data/trajectory/" + self.episode_date + "_traj.npy")
         if Path(_trajectory_path).exists():
             with open(_trajectory_path, "rb") as f:
-                self.calc_trajectory = np.load(f)  # (n, 2) - y, x
+                self.calc_2d = np.load(f)  # (n, 2) - y, x
                 print("loaded 2d trajectory")
 
         self.calc_3d = None
@@ -279,13 +283,6 @@ class RawScene:
                 _nan_mask = np.any(np.isnan(self.calc_3d), axis=1)
                 self.mean_3d = np.mean(self.calc_3d[~_nan_mask], axis=0)[:3]
                 print("mean 3d", self.mean_3d)
-
-        #self.track_3d = None
-        #_trajectory_path = "data/trajectory_track_3d.npy"
-        #if Path(_trajectory_path).exists():
-        #    with open(_trajectory_path, "rb") as f:
-        #        self.track_3d = np.load(f)  # (n, 4) - x, y, z, color
-        #        print("loaded tracked 3d trajectory")
 
 
 
@@ -424,16 +421,16 @@ class RawScene:
             ),
 
             # === left camera point cloud
-            pcd_translation = extrinsics_left[:3]
-            pcd_rotation = Rotation.from_euler(
+            left_translation = extrinsics_left[:3]
+            left_rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
 
             rr.log(
                 f"cameras/{camera_name}/pcd",
                 rr.Transform3D(
-                    translation=pcd_translation,
-                    mat3x3=pcd_rotation,
+                    translation=left_translation,
+                    mat3x3=left_rotation,
                 )
             )
 
@@ -498,35 +495,29 @@ class RawScene:
             # left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # track point
-            if (self.calc_trajectory is not None and
+            if (self.calc_2d is not None and
                 self.first_touch != -1 and
-                i - self.first_touch < self.calc_trajectory.shape[0]
+                i - self.first_touch < self.calc_2d.shape[0]
             ):
                 traj_ind = i - self.first_touch
-                y, x = self.calc_trajectory[traj_ind]
+                y, x = self.calc_2d[traj_ind]
                 self.points.append((x, y, 0))
 
                 if self.calc_3d is not None:
                     #point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
                     point = self.calc_3d[traj_ind][:3]
-                    rr.log(f'cameras/{camera_name}/track_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                    rr.log(f'cameras/{camera_name}/track_3d', rr.Points3D([point], radii=[0.02]))
+                    rr.log(f'cameras/{camera_name}/calc_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
+                    rr.log(f'cameras/{camera_name}/calc_3d', rr.Points3D([point], radii=[0.02]))
 
-                #if self.calc_3d is not None:
-                    #rr.log(f'cameras/{camera_name}/mean_3d', rr.Transform3D(translation=pcd_translation, mat3x3=pcd_rotation))
-                    #rr.log(f'cameras/{camera_name}/mean_3d', rr.Points3D([self.mean_3d], radii=[0.02]))
-
-                # tracked 3d point
-                #if self.track_3d is not None:
-                #    point: np.ndarray = self.track_3d[traj_ind] # [4, 4] rot + t
-                #    t = point[:3, 3] # [3]
-                #    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Transform3D(translation=depth_translation, mat3x3=depth_rotation))
-                #    rr.log(f'cameras/{camera_name}/tracked_3d', rr.Points3D([t], radii=[0.02]))
+                if self.trajectory_3d is not None:
+                    point = self.trajectory_3d[traj_ind][:3]
+                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
+                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], radii=[0.02]))
 
                 left_image = draw_sequence(left_image, [(x, y, 1)])
 
-            full_point_cloud = point_cloud # save original point cloud
             # === point cloud filtering
+            full_point_cloud = point_cloud # save original point cloud
 
             if self.calc_3d is not None:
                 h, w, _ = point_cloud.shape
