@@ -15,7 +15,7 @@ class EpisodeList:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
-        self.is_test = True
+        self.is_test = False
         if self.is_test:
             if self.is_train:
                 self.ind_list = []
