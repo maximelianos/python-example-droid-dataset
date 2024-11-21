@@ -242,65 +242,65 @@ class DroidLoader:
         if _path.exists():
             with open(_path, "rb") as f:
                 traj_3d = np.load(f)
-        else:
-            # calculate 3D trajectory
-            traj_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
-            vel = np.zeros((4))
-            for i, images in enumerate(self._gripper_frames()):
-                y, x = self.trajectory[i]
-                _pcd = images["cameras/ext1/full_pcd"]
-                traj_3d[i] = _pcd[y, x]
-
-                if i >= 2:
-                    # choose closest point with velocity
-                    _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
-                    print(_d)
-                    if _d > 0.02 or np.isnan(_d):
-                        _opt = [0, 0, 1000]
-                        for dy in range(-40, 40, 1):
-                            for dx in range(-40, 40, 1):
-                                _d = ((traj_3d[i-1]+vel - _pcd[y+dy, x+dx])[:3] **2).sum() ** 0.5
-                                if _d < _opt[2]:
-                                    _opt = [y+dy, x+dx, _d]
-                        new_y, new_x = _opt[0], _opt[1]
-                        traj_3d[i] = _pcd[new_y, new_x]
-
-                        # _p2 = traj_3d[i-1] + (traj_3d[i-1] - traj_3d[i-2])
-                        # traj_3d[i] = _p2
-
-                        _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
-                        print("fix", _d)
-                    vel = 0.5 * vel + 0.5 * (traj_3d[i] - traj_3d[i-1])
-            # fill nans
-            def nan_helper(y):
-                """Helper to handle indices and logical indices of NaNs.
-                Input:
-                    - y, 1d numpy array with possible NaNs
-                Output:
-                    - nans, logical indices of NaNs
-                    - index, a function, with signature indices= index(logical_indices),
-                    to convert logical indices of NaNs to 'equivalent' indices
-                    Example:
-                    >>> # linear interpolation of NaNs
-                    >>> nans, x= nan_helper(y)
-                    >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
-                """
-                return np.isnan(y), lambda z: z.nonzero()[0]
-
-            def nan_filler(y: np.ndarray) -> np.ndarray:
-                """Fill nans along 1st dimension.
-
-                y: (n_steps, ...)
-                """
-                shape = y.shape
-                y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
-                nans, x = nan_helper(y)
-                y[nans] = np.interp(x(nans), x(~nans), y[~nans])
-                y = y.transpose().reshape(shape) # original shape
-                return y
-            
-            traj_3d[np.isnan(traj_3d)] = 0
-            # traj_3d = nan_filler(traj_3d)
+        # else:
+        #     # calculate 3D trajectory
+        #     traj_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
+        #     vel = np.zeros((4))
+        #     for i, images in enumerate(self._gripper_frames()):
+        #         y, x = self.trajectory[i]
+        #         _pcd = images["cameras/ext1/full_pcd"]
+        #         traj_3d[i] = _pcd[y, x]
+        #
+        #         if i >= 2:
+        #             # choose closest point with velocity
+        #             _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
+        #             print(_d)
+        #             if _d > 0.02 or np.isnan(_d):
+        #                 _opt = [0, 0, 1000]
+        #                 for dy in range(-40, 40, 1):
+        #                     for dx in range(-40, 40, 1):
+        #                         _d = ((traj_3d[i-1]+vel - _pcd[y+dy, x+dx])[:3] **2).sum() ** 0.5
+        #                         if _d < _opt[2]:
+        #                             _opt = [y+dy, x+dx, _d]
+        #                 new_y, new_x = _opt[0], _opt[1]
+        #                 traj_3d[i] = _pcd[new_y, new_x]
+        #
+        #                 # _p2 = traj_3d[i-1] + (traj_3d[i-1] - traj_3d[i-2])
+        #                 # traj_3d[i] = _p2
+        #
+        #                 _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
+        #                 print("fix", _d)
+        #             vel = 0.5 * vel + 0.5 * (traj_3d[i] - traj_3d[i-1])
+        #     # fill nans
+        #     def nan_helper(y):
+        #         """Helper to handle indices and logical indices of NaNs.
+        #         Input:
+        #             - y, 1d numpy array with possible NaNs
+        #         Output:
+        #             - nans, logical indices of NaNs
+        #             - index, a function, with signature indices= index(logical_indices),
+        #             to convert logical indices of NaNs to 'equivalent' indices
+        #             Example:
+        #             >>> # linear interpolation of NaNs
+        #             >>> nans, x= nan_helper(y)
+        #             >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+        #         """
+        #         return np.isnan(y), lambda z: z.nonzero()[0]
+        #
+        #     def nan_filler(y: np.ndarray) -> np.ndarray:
+        #         """Fill nans along 1st dimension.
+        #
+        #         y: (n_steps, ...)
+        #         """
+        #         shape = y.shape
+        #         y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
+        #         nans, x = nan_helper(y)
+        #         y[nans] = np.interp(x(nans), x(~nans), y[~nans])
+        #         y = y.transpose().reshape(shape) # original shape
+        #         return y
+        #
+        #     traj_3d[np.isnan(traj_3d)] = 0
+        #     # traj_3d = nan_filler(traj_3d)
         # take robot trajectory instead?
         traj_3d = np.ones((n_steps, 4))
         traj_3d[:, :3] = np.stack(self.finger_tip)
@@ -332,7 +332,7 @@ class DroidLoader:
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(41, 42):
+    for i in range(58, 139):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)

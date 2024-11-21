@@ -124,9 +124,11 @@ def rerun_evaluation():
         #     print("Error in raw.py:", repr(e))
 
 def plot_depth():
-    selected_sid = range(41)
+    selected_sid = range(139)
     Path("data/depth_plot").mkdir(exist_ok=True)
     for sid in selected_sid:
+        print(sid, manual_paths[sid])
+        input()
         _episode_date = manual_dates[sid]
         _path = Path("data/trajectory") / (_episode_date + "_traj3d.npy") # (n_steps, 4)
         with open(_path, "rb") as f:

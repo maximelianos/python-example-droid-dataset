@@ -524,12 +524,13 @@ class RawScene:
 
             finger_tip_t = left_ext @ (self.finger_tip @ [0, 0, 0, 1])
             finger_tip_t =  (finger_tip_t / finger_tip_t[3])[:3]
+
             if self.visualize:
                 rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
                 
-                rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip_t], colors=red, radii=[0.02]))
+                # rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
+                # rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip_t], colors=red, radii=[0.02]))
 
                 if depth_image is not None:
                     _d = depth_image.copy()
