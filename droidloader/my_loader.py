@@ -9,6 +9,7 @@ import re
 import datetime
 import numpy as np
 
+import rerun as rr
 import PIL
 import torch
 from torchvision.transforms import v2
@@ -54,6 +55,7 @@ class DroidLoader:
         self.depth = []
         self.full_pcd = []
         self.pcd = []
+        self.finger_tip = []
         self.start = 0
         self.stop = -1
 
@@ -130,11 +132,16 @@ class DroidLoader:
         self.raw_scene = RawScene(self.scene, False)   # reset the reader
 
         for i in range(0, self.raw_scene.trajectory_length):
+            if i == 0:
+                self.raw_scene.urdf_logger.log()
+
             # limit trajectory length
             if len(self.rgb) >= 70:
                 return
 
             # read frame
+            self.raw_scene.log_robot_state(i, self.raw_scene.urdf_logger.entity_to_transform)
+            self.raw_scene.log_action(i)
             images: dict = self.raw_scene.log_cameras_next(i)
 
             # save first image
@@ -161,12 +168,14 @@ class DroidLoader:
         self.depth = []
         self.full_pcd = []
         self.pcd = []
+        self.finger_tip = []
 
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
             self.depth.append(images["cameras/ext1/depth"])
             self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
+            self.finger_tip.append(images["cameras/ext1/finger_tip"])
 
         self.stop = len(self.rgb)
 
@@ -207,80 +216,98 @@ class DroidLoader:
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
         if trajectory_path.exists():
             with open(trajectory_path, "rb") as f:
-                self.trajectory = np.load(f)
+                trajectory = np.load(f)
+        else:
+            # === compute trajectory
+            loaders: List = [self]
+            num_frames = -1 # TIME_STEPS  # number of frames through which we compute flow
+            trajectories: Dict[int, Trajectory] = {}
+            for demonstration_index in tqdm(range(len(loaders))):
+                trajectories[demonstration_index] = Trajectory.from_hands23(loaders[demonstration_index], n_frames=num_frames)
 
-            return self.trajectory
-
-        # === compute trajectory
-        loaders: List = [self]
-        num_frames = -1 # TIME_STEPS  # number of frames through which we compute flow
-        trajectories: Dict[int, Trajectory] = {}
-        for demonstration_index in tqdm(range(len(loaders))):
-            trajectories[demonstration_index] = Trajectory.from_hands23(loaders[demonstration_index], n_frames=num_frames)
-
-        # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
-        trajectory = trajectories[0].trajectory_2D  # (n_steps, 1, 2)
-
-        trajectory = trajectory.reshape((-1, 2))
-
-        with open(trajectory_path, "wb") as f:
-            np.save(f, trajectory)
-        with open("data/trajectory.npy", "wb") as f:
-            np.save(f, trajectory) 
+            # We could pre compute trajectories with .trajectory_2D and .trajectory_3D
+            trajectory = trajectories[0].trajectory_2D  # (n_steps, 1, 2)
+            trajectory = trajectory.reshape((-1, 2))
         self.trajectory = trajectory
-
-        return trajectory
+        with open(trajectory_path, "wb") as f:
+            np.save(f, self.trajectory)
+        return self.trajectory
 
     def track_3d(self):
         # Read 2D trajectory, use point cloud, and save 3D trajectory
-        trajectory = self.trajectory
-        n_steps, _ = trajectory.shape
+        n_steps, _ = self.trajectory.shape
 
         # === check if trajectory was already computed
-        traj3d_path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")
-        if traj3d_path.exists():
-            with open(traj3d_path, "rb") as f:
-                self.trajectory_3d = np.load(f)
-            return self.trajectory_3d
+        _path = Path("data/trajectory/" + self.episode_date + "_traj3d.npy")
+        if _path.exists():
+            with open(_path, "rb") as f:
+                traj_3d = np.load(f)
+        else:
+            # calculate 3D trajectory
+            traj_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
+            vel = np.zeros((4))
+            for i, images in enumerate(self._gripper_frames()):
+                y, x = self.trajectory[i]
+                _pcd = images["cameras/ext1/full_pcd"]
+                traj_3d[i] = _pcd[y, x]
 
-        # calculate 3D trajectory
-        self.trajectory_3d = np.zeros((n_steps, 4)) # list[numpy(XYZ+RGBA)]
-        for i, images in enumerate(self._gripper_frames()):
-            y, x = trajectory[i]
-            _pcd = images["cameras/ext1/full_pcd"]
-            self.trajectory_3d[i] = _pcd[y, x]
-        # fill nans
-        def nan_helper(y):
-            """Helper to handle indices and logical indices of NaNs.
-            Input:
-                - y, 1d numpy array with possible NaNs
-            Output:
-                - nans, logical indices of NaNs
-                - index, a function, with signature indices= index(logical_indices),
-                to convert logical indices of NaNs to 'equivalent' indices
-                Example:
-                >>> # linear interpolation of NaNs
-                >>> nans, x= nan_helper(y)
-                >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
-            """
-            return np.isnan(y), lambda z: z.nonzero()[0]
+                if i >= 2:
+                    # choose closest point with velocity
+                    _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
+                    print(_d)
+                    if _d > 0.02 or np.isnan(_d):
+                        _opt = [0, 0, 1000]
+                        for dy in range(-40, 40, 1):
+                            for dx in range(-40, 40, 1):
+                                _d = ((traj_3d[i-1]+vel - _pcd[y+dy, x+dx])[:3] **2).sum() ** 0.5
+                                if _d < _opt[2]:
+                                    _opt = [y+dy, x+dx, _d]
+                        new_y, new_x = _opt[0], _opt[1]
+                        traj_3d[i] = _pcd[new_y, new_x]
 
-        def nan_filler(y: np.ndarray) -> np.ndarray:
-            """Fill nans along 1st dimension.
+                        # _p2 = traj_3d[i-1] + (traj_3d[i-1] - traj_3d[i-2])
+                        # traj_3d[i] = _p2
 
-            y: (n_steps, ...)
-            """
-            shape = y.shape
-            y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
-            nans, x = nan_helper(y)
-            y[nans] = np.interp(x(nans), x(~nans), y[~nans])
-            y = y.transpose().reshape(shape) # original shape
-            return y
-        self.trajectory_3d = nan_filler(self.trajectory_3d)
+                        _d = ((traj_3d[i] - traj_3d[i-1])[:3] ** 2).sum() ** 0.5
+                        print("fix", _d)
+                    vel = 0.5 * vel + 0.5 * (traj_3d[i] - traj_3d[i-1])
+            # fill nans
+            def nan_helper(y):
+                """Helper to handle indices and logical indices of NaNs.
+                Input:
+                    - y, 1d numpy array with possible NaNs
+                Output:
+                    - nans, logical indices of NaNs
+                    - index, a function, with signature indices= index(logical_indices),
+                    to convert logical indices of NaNs to 'equivalent' indices
+                    Example:
+                    >>> # linear interpolation of NaNs
+                    >>> nans, x= nan_helper(y)
+                    >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+                """
+                return np.isnan(y), lambda z: z.nonzero()[0]
 
-        with open(traj3d_path, "wb") as f:
-            np.save(f, self.trajectory_3d)
-        with open("data/trajectory_3d.npy", "wb") as f:
+            def nan_filler(y: np.ndarray) -> np.ndarray:
+                """Fill nans along 1st dimension.
+
+                y: (n_steps, ...)
+                """
+                shape = y.shape
+                y = y.reshape((shape[0], -1)).transpose()  # (emb, n_steps)
+                nans, x = nan_helper(y)
+                y[nans] = np.interp(x(nans), x(~nans), y[~nans])
+                y = y.transpose().reshape(shape) # original shape
+                return y
+            
+            traj_3d[np.isnan(traj_3d)] = 0
+            # traj_3d = nan_filler(traj_3d)
+        # take robot trajectory instead?
+        traj_3d = np.ones((n_steps, 4))
+        traj_3d[:, :3] = np.stack(self.finger_tip)
+
+        self.trajectory_3d = traj_3d
+
+        with open(_path, "wb") as f:
             np.save(f, self.trajectory_3d)
         return self.trajectory_3d
 
@@ -303,8 +330,10 @@ class DroidLoader:
 
 
 def process_manuals():
+    rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i, scene in enumerate(manual_paths[19:]):
+    for i in range(41, 42):
+        scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
@@ -312,8 +341,8 @@ def process_manuals():
         loader.read_trajectory()
         loader.track()
         loader.track_3d() # [4] = XYZ+color
-        #loader.read_trajectory() # raw.py will cut pcd now
-        loader.save_pcd()
+        # loader.read_trajectory() # raw.py will cut pcd now
+        # loader.save_pcd()
 
 
 def main():
@@ -354,13 +383,6 @@ def main():
 
     print("intrinsics", end=" ")
     print(loader.intrinsics.matrix)
-
-
-    with open("data/trajectory.npy", "wb") as f:
-        np.save(f, loader.trajectory)
-    with open("data/trajectory_3d.npy", "wb") as f:
-        np.save(f, loader.trajectory_3d)
-
 
 if __name__ == "__main__":
     #main()

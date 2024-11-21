@@ -13,7 +13,7 @@ from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
-from .my_episode_list import manual_paths, date_to_localpath, manual_dates, train_idx, val_idx
+from .my_episode_list import manual_paths, date_to_localpath, manual_dates, train_idx, val_idx, imginfo
 
 def draw_sequence(image: np.ndarray, points: list):
     """
@@ -124,8 +124,7 @@ def rerun_evaluation():
         #     print("Error in raw.py:", repr(e))
 
 def plot_depth():
-    from .my_episode_list import imginfo
-    selected_sid = range(139)
+    selected_sid = range(41)
     Path("data/depth_plot").mkdir(exist_ok=True)
     for sid in selected_sid:
         _episode_date = manual_dates[sid]
@@ -145,8 +144,19 @@ def plot_depth():
         plt.savefig("data/depth_plot/" + f"{sid:03d}" + ".jpg", dpi=150)
         # input()
 
+def plot_projection():
+    rr.init("DROID-visualized", spawn=False) # MV
+    selected_sid = range(96, 139)
+    Path("data/projection").mkdir(exist_ok=True)
+    for sid in selected_sid:
+        _path = Path("data/projection") / (f"{sid:03d}" + ".jpg")
+        _raw_scene = RawScene(manual_paths[sid], False)
+        _raw_scene.log()
+        _raw_scene.draw_image(_path)
+
 
 if __name__ == "__main__":
     #plot_2d_evaluation()
     #rerun_evaluation()
     plot_depth()
+    #plot_projection()

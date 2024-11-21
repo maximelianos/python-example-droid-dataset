@@ -1,15 +1,13 @@
 import numpy as np
 
 class ImageSaver:
-    cache: list = [] # [(time, image)]
-    t_max_diff: int = 1000  # millis, max queue time diff
-    t_step: int = 100       # millis, min time diff btw close frames
-    center_images: list = [] # [(time, image)]
-    center_time: int = 0    # millis, save some frames before and after
-    snapshots: dict = {}    # single images {description: image}
-
     def __init__(self):
-        pass
+        self.cache: list = [] # [(time, image)]
+        self.t_max_diff: int = 1000  # millis, max queue time diff
+        self.t_step: int = 100       # millis, min time diff btw close frames
+        self.center_images: list = [] # [(time, image)]
+        self.center_time: int = 0    # millis, save some frames before and after
+        self.snapshots: dict = {}    # single images {description: image}
 
     def append(self, time: int, image: np.array):
         # discard frame if too little time passed from previous frame
