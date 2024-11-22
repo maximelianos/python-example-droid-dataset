@@ -13,6 +13,7 @@ import rerun as rr
 import PIL
 import torch
 from torchvision.transforms import v2
+from skimage import io
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -328,11 +329,24 @@ class DroidLoader:
         with open(pcd_path, "wb") as f:
             np.save(f, _p)
 
+    def save_img0(self):
+        # save first image for Max
+        _path = Path("data/trajectory") / (self.episode_date + "_img0.jpg")
+        io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
+
+    def save_intrinsic(self):
+        # save intrinsic matrix for Max
+        _intrinsic = self.intrinsics.matrix  # Nick -> (3, 3)
+        _path = Path("data/trajectory") / (self.episode_date + "_intrinsic.npy")
+        with open(_path, "wb") as f:
+            np.save(f, _intrinsic)
+
+
 
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(58, 139):
+    for i in range(0, 5):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
@@ -343,6 +357,9 @@ def process_manuals():
         loader.track_3d() # [4] = XYZ+color
         # loader.read_trajectory() # raw.py will cut pcd now
         # loader.save_pcd()
+        #
+        loader.save_img0()
+        loader.save_intrinsic()
 
 
 def main():
