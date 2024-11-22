@@ -8,6 +8,16 @@ import numpy as np
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
+MANUAL_ENABLE = False
+
+# subsample with replacement
+def random_choice(a: np.ndarray, size: int) -> np.ndarray:
+    # a has shape [n_vectors, ...]
+    ind = np.random.randint(0, len(a), size=size)
+    return a[ind]
+
+
+
 # === existing episodes
 with open("data/existing_episodes.json") as f:
     existing_episodes = json.load(f)
@@ -35,19 +45,13 @@ annotations: dict[str, dict[str, str]]
 with open(_target_dir / _annotations_file_name) as f:
     annotations = json.load(f)
 
-# === list of available episodes
-# episodes: list[str] = []
-# for date in sorted((_target_dir / "success").iterdir()):
-#     for episode in sorted(date.iterdir()):
-#         # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
-#         # .    .         .     .       date       episode
-#         episodes.append(str(episode))
-# episodes = episodes[:10]
-
-# for i, episode in enumerate(episodes):
-#     print(f"{i: >4}", episode)
-# print("episodes:", len(episodes))
-
+# === saved episodes in awkward directory structure
+saved_episodes: list[str] = []
+for date in sorted((_target_dir / "success").iterdir()):
+    for episode in sorted(date.iterdir()):
+        # data/droid_raw/1.0.1/success/2023-03-02/Thu_Mar__2_15_00_02_2023
+        # .    .         .     .       date       episode
+        saved_episodes.append(str(episode))
 
 def read_episode_date(episode: str):
     # read uuid
@@ -65,19 +69,17 @@ def read_episode_date(episode: str):
 # === manually selected episodes
 manual_paths: list[str] = []
 manual_dates: list[str] = []
-with open("data/manual_episodes.json", "r") as f:
-    manual_dates = json.load(f)
-    manual_paths = [date_to_localpath[date] for date in manual_dates]
+train_idx: np.ndarray = None
+val_idx: np.ndarray = None
+if MANUAL_ENABLE:
+    with open("data/manual_episodes.json", "r") as f:
+        manual_dates = json.load(f)
+        manual_paths = [date_to_localpath[date] for date in manual_dates]
 
-np.random.seed(0)
-_idx = np.random.permutation(139) # 140
-train_idx = _idx[:120]
-val_idx = _idx[120:]
+    np.random.seed(0)
+    _idx = np.random.permutation(139) # 140
+    train_idx = _idx[:120]
+    val_idx = _idx[120:]
 
 
-# subsample with replacement
-def random_choice(a: np.ndarray, size: int) -> np.ndarray:
-    # a has shape [n_vectors, ...]
-    ind = np.random.randint(0, len(a), size=size)
-    return a[ind]
 

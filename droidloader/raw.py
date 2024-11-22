@@ -2,6 +2,7 @@
 
 # Read video and trajectory, pipe images to rerun.
 
+from collections.abc import Generator
 import numpy as np
 from pathlib import Path
 import rerun as rr
@@ -18,7 +19,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import manual_paths, read_episode_date, random_choice
+from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo
 
 
 def world_to_camera(t, rot):
@@ -322,7 +323,7 @@ class RawScene:
                                             int(i - offset):
                         min(self.trajectory_length, int(i + box_filter - offset))
                 ]
-            gripper_on = np.sum(signal > 0.5)
+            gripper_on: int = np.sum(signal > 0.5)
             if gripper_on == len(signal):
                 # gripper always on
                 if self.is_gripper_closed == False:
@@ -336,12 +337,11 @@ class RawScene:
                 # gripper always off
                 self.is_gripper_closed = False
 
-
             if self.is_gripper_closed:
                 self.gripper_duration += 1
-            # print("frame", i, "gripper_closed", self.is_gripper_closed)
-
             # END gripper state
+
+
 
             time_stamp_camera = self.trajectory["observation"]["timestamp"][
                 "cameras"
@@ -355,6 +355,7 @@ class RawScene:
             left_rotation = Rotation.from_euler(
                 "xyz", np.array(extrinsics_left[3:])
             ).as_matrix()
+            left_translation = extrinsics_left[:3]
 
             rr.log(
                 f"cameras/{camera_name}/left",
@@ -369,13 +370,6 @@ class RawScene:
                     mat3x3=left_rotation,
                 ),
             ),
-
-            # MV left world 3d -> image 2d
-            t = np.array(extrinsics_left[:3]) # [3]
-
-            pinhole = np.eye(4)[:3, :4]
-            left_ext = world_to_camera(t, left_rotation) # [4, 4] 
-            self.left_proj_mat = camera.left_intrinsic_mat @ pinhole @ left_ext # (3, 3) x (3, 4), x (4, 4)
 
             # === right view extrinsics
             extrinsics_right = self.trajectory["observation"]["camera_extrinsics"][
@@ -401,11 +395,6 @@ class RawScene:
 
             # === depth view
             # MV depth image is aligned with the left image, according to ZED docs 
-            depth_translation = extrinsics_left[:3]
-            depth_rotation = Rotation.from_euler(
-                "xyz", np.array(extrinsics_left[3:])
-            ).as_matrix()
-
             rr.log(
                 f"cameras/{camera_name}/depth",
                 rr.Pinhole(
@@ -421,11 +410,6 @@ class RawScene:
             ),
 
             # === left camera point cloud
-            left_translation = extrinsics_left[:3]
-            left_rotation = Rotation.from_euler(
-                "xyz", np.array(extrinsics_left[3:])
-            ).as_matrix()
-
             rr.log(
                 f"cameras/{camera_name}/pcd",
                 rr.Transform3D(
@@ -434,6 +418,10 @@ class RawScene:
                 )
             )
 
+            # MV left world 3d -> image 2d
+            pinhole = np.eye(4)[:3, :4]
+            left_ext = world_to_camera(left_translation, left_rotation) # [4, 4] 
+            self.left_proj_mat = camera.left_intrinsic_mat @ pinhole @ left_ext # (3, 3) x (3, 4), x (4, 4)
 
 
 
@@ -446,22 +434,20 @@ class RawScene:
 
             # remove alpha channel if present, convert from BGR to RGB
             left_image = left_image[:, :, :3][:, :, ::-1].copy()
-            imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
             # save frame
             self.imsaver.append(time_stamp_camera, left_image)  # time in ms
             self.imsaver.snap("first", left_image) # save first episode image
 
-            # finger tip projection
-            def robot_to_image(transform_3d: np.ndarray) -> np.ndarray:
-                # transform_3d: (4, 4) 0 -> position 3d
-                # return: [x, y]
-                _p = transform_3d @ [0, 0, 0, 1] # [4, 4] x [4] -> t
-                _p2d = self.left_proj_mat @ _p # (3, 4) x (4)
-                _p2d = _p2d / _p2d[2] # [x/z, y/z, 1]
-                return _p2d[:2]
-            x, y = robot_to_image(self.finger_tip) # gripper_3d, finget_tip, 
-            #left_image = draw_sequence(left_image, [(x, y, 1)])
+            # === finger tip projection
+            _p3d = left_ext @ (self.finger_tip @ [0, 0, 0, 1])  # (4, 4) x (4, 4) x (4)
+            _p3d =  _p3d / _p3d[3]
+            _p2d = camera.left_intrinsic_mat @ pinhole @ _p3d # (3, 3) x (3, 4) x (4)
+            _p3d = _p3d[:3] # remove homogenous element
+            _p2d = _p2d / _p2d[2]
+            finger_tip = _p3d
+            x, y = _p2d[0], _p2d[1] # gripper_3d, finget_tip, 
+            left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # === first touch
             if self.first_touch == i:
@@ -480,17 +466,19 @@ class RawScene:
             if 0 <= y < h and 0 <= x < w:
                 self.visible_count += 1
 
-            blue = [0, 0, 255, 255]
-            red = [255, 0, 0, 255]
             # track point
             MAX_STEPS = 34
+            blue = [0, 0, 255, 255]
+            red = [255, 0, 0, 255]
             if (self.calc_2d is not None and
                 self.first_touch != -1 and
                 i - self.first_touch < min(MAX_STEPS, self.calc_2d.shape[0])
             ):
                 traj_ind = i - self.first_touch
+
                 y, x = self.calc_2d[traj_ind]
-                #self.points.append((x, y, 0))
+                #self.points.append((x, y, 0))  # for saved image
+                #left_image = draw_sequence(left_image, [(x, y, 1)])  # show immediately
 
                 if self.calc_3d is not None:
                     #point = point_cloud[y, x][:3]  # XYZ+RGBA - remove color
@@ -498,39 +486,35 @@ class RawScene:
                     rr.log(f'cameras/{camera_name}/calc_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
                     rr.log(f'cameras/{camera_name}/calc_3d', rr.Points3D([point], colors=blue, radii=[0.02]))
 
-                if self.trajectory_3d is not None:
-                    point = self.trajectory_3d[traj_ind][:3]
-                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                    rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], colors=red, radii=[0.02]))
+                # if self.trajectory_3d is not None:
+                #     point = self.trajectory_3d[traj_ind][:3]
+                #     rr.log(f'cameras/{camera_name}/pred_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
+                #     rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], colors=red, radii=[0.02]))
 
-                #left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # === point cloud filtering
-            full_point_cloud = point_cloud # save original point cloud
+            cut_pcd: np.ndarray = None
+            if self.calc_3d is not None:
+                h, w, _ = point_cloud.shape
+                _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
+                nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
+                _p = _p[~nan_mask, :]
+                _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
+                # cut out sphere
+                _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
+                _p = _p[_mag < 0.3]
 
-            # if self.calc_3d is not None:
-            #     h, w, _ = point_cloud.shape
-            #     _p = point_cloud.reshape((h*w, 4)) # make point cloud unordered
-            #     nan_mask = np.any(np.isnan(_p), axis=1) # remove nan points
-            #     _p = _p[~nan_mask, :]
-            #     _p = _p[np.sum(_p[:, :3] ** 2, axis=1) ** 0.5 < 1.0] # remove far away points
-            #     # cut out sphere
-            #     _mag = np.sum((_p[:, :3] - self.mean_3d.reshape(1, 3)) ** 2, axis=1) ** 0.5
-            #     _p = _p[_mag < 0.3]
-            #
-            #     point_cloud = random_choice(_p, 5000)
+                cut_pcd = random_choice(_p, 5000)
 
             # Ignore points that are far away.
 
-            finger_tip_t = left_ext @ (self.finger_tip @ [0, 0, 0, 1])
-            finger_tip_t =  (finger_tip_t / finger_tip_t[3])[:3]
 
             if self.visualize:
                 rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
                 
                 rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip_t], colors=red, radii=[0.02]))
+                rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip], colors=red, radii=[0.02]))
 
                 if depth_image is not None:
                     _d = depth_image.copy()
@@ -538,14 +522,14 @@ class RawScene:
                     rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(_d, depth_range=(0, 1)) )
 
                     # visualize pcd
-                    #rr_points = rr.Points3D(positions=point_cloud[:, :3], radii=[0.002])
+                    #rr_points = rr.Points3D(positions=cut_pcd[:, :3], radii=[0.002])
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
             return_dict[f"cameras/{camera_name}/depth"] = depth_image
-            return_dict[f"cameras/{camera_name}/full_pcd"] = full_point_cloud # p[i, j] = (x, y, z, color)
-            return_dict[f"cameras/{camera_name}/pcd"] = point_cloud # (n_points, xyz)
-            return_dict[f"cameras/{camera_name}/finger_tip"] = finger_tip_t
+            return_dict[f"cameras/{camera_name}/full_pcd"] = point_cloud # p[i, j] = (x, y, z, color)
+            return_dict[f"cameras/{camera_name}/pcd"] = cut_pcd # (n_points, xyz)
+            return_dict[f"cameras/{camera_name}/finger_tip"] = finger_tip
         return return_dict
 
     def log_action(self, i: int) -> None:
@@ -624,7 +608,9 @@ class RawScene:
         for j, vel in enumerate(self.robot_state['motor_torques_measured'][i]):
             rr.log(f"robot_state/motor_torques_measured/{j}", rr.Scalar(vel))
 
-    def log(self, urdf_logger=None) -> None:
+    def log(self) -> dict:
+        # return images
+
         time_stamps_nanos = self.trajectory["observation"]["timestamp"]["robot_state"][
             "robot_timestamp_nanos"
         ]
@@ -642,7 +628,7 @@ class RawScene:
             # MV
             self.log_robot_state(i, self.urdf_logger.entity_to_transform)
             self.log_action(i)
-            self.log_cameras_next(i)
+            yield self.log_cameras_next(i)
 
             if i > 600:
               break
@@ -652,7 +638,10 @@ class RawScene:
         # Execute after looping over all frames.
         # "grip", "last" as canvas
         print("plot episode", self.episode_date)
-        plot = draw_sequence(self.imsaver.snapshots["grip"], self.points)
+        snap_key = "grip"
+        if not "grip" in self.imsaver.snapshots:
+            snap_key = "first"
+        plot = draw_sequence(self.imsaver.snapshots[snap_key], self.points)
         io.imsave(path, plot, quality=90)
 
         # Path("data/frames").mkdir(parents=True, exist_ok=True)
@@ -785,8 +774,6 @@ def main():
     rr.init("DROID-visualized", spawn=args.visualize) # MV
     raw_scene: RawScene = RawScene(scene, args.visualize)
     raw_scene.log()
-
-    # MV
     plot_dir = Path(args.plot).parent
     plot_dir.mkdir(parents=True, exist_ok=True)
     raw_scene.draw_image(args.plot)

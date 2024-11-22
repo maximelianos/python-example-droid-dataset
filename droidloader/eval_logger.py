@@ -31,8 +31,7 @@ class EvalLogger:
         self.episode_date = manual_dates[episode_idx]
         self.trajectory = []
 
-    def vis_step(self,
-                 prediction: np.ndarray):
+    def vis_step(self, prediction: np.ndarray):
         # collect whole trajectory in list
 
         self.trajectory.append(prediction)

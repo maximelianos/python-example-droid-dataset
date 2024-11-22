@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--out", default=None, type=Path, help="where to store data, by default in data/")
     parser.add_argument('--debug', action='store_true', help="stop on points")
     args = parser.parse_args()
+
     if args.out is None:
         # ./scripts/my_download_raw.py
         root_dir = Path(__file__).parent.parent
@@ -35,12 +36,11 @@ def main():
         ]
         print(f'Annotation file not found, running {" ".join(command)}')
         subprocess.run(command)
-
     with open(target_dir / annotations_file_name) as f:
         # scheme { str uuid: {"language_instruction1": str, ...} }
         annotations = json.load(f)
-    print("episodes before cleaning:", len(annotations.keys()))
-
+    print("annotations before cleaning:", len(annotations.keys()))
+    
     # === existing episodes [date, uuid, path]
     with open("data/existing_episodes.json") as f:
         existing_episodes = json.load(f)
@@ -52,17 +52,16 @@ def main():
         if uuid in uuid_to_path:
             intersection[uuid] = annotations[uuid]
     annotations = intersection
-    print("episodes after cleaning:", len(annotations.keys()))
+    print("existing annotations:", len(annotations.keys()))
 
 
 
-    # === filter based on annotation
+    # === filter by annotation
     # ordered by increasing date
     selected_episodes = {} # {"IPRL+w026bb9b+2023-04-20-23h-28m-09s": {"language_instruction1": ...}}
     no_annotation_cnt = 0
     for _date, uuid, _path in existing_episodes:
-        is_good = True
-        to_save = False
+        matches = False
         
         if uuid not in annotations:
             no_annotation_cnt += 1
@@ -72,26 +71,27 @@ def main():
             annot = annotations[uuid][annot_key].lower() # very important!
             regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
             regex2 = r"move.*(forward|backwards|left|right)"
-            regex3 = r"(close|drawer)"
+            regex3 = r"(close|drawer|blocks|charger|adapter)"
             if len(annot) > 60 or (
-                #re.findall(regex1, annot) or re.findall(regex2, annot)
-                re.findall(regex3, annot)
+                re.findall(regex1, annot)
+                or re.findall(regex2, annot)
+                or re.findall(regex3, annot)
             ):
-               is_good = False
-            
-            is_match = (
-                #"marker" in annot
+                matches = False
+                break
+
+            if ( #"marker" in annot
                 "block" in annot
-            )
-            if is_match:
+                #re.findall(regex5, annot)
+            ):
                 save_key = annot_key
-                to_save = True
-        if is_good and to_save:
+                matches = True
+        if matches:
             selected_episodes[uuid] = annotations[uuid][save_key]
     print("no annotations:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
-    #selected_list = selected_list[455:456] # 810:1000
+    selected_list = selected_list
 
     # for i, uuid in enumerate(selected_list):
     #     print(i, uuid_to_ind[uuid])

@@ -4,6 +4,7 @@ import argparse
 import re
 import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 import rerun as rr
 import skimage
@@ -13,7 +14,7 @@ from torchvision.transforms import v2
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
-from .my_episode_list import manual_paths, date_to_localpath, manual_dates, train_idx, val_idx, imginfo
+from .my_episode_list import manual_paths, date_to_localpath, manual_dates, read_episode_date, train_idx, val_idx, imginfo
 
 def draw_sequence(image: np.ndarray, points: list):
     """
@@ -75,6 +76,9 @@ class DrawTrajectory:
 
 
 def plot_2d_evaluation():
+    # Predict trajectory and plot in 2D.
+    # Run this after training model and evaluation
+
     trajectory_dir = Path("data/eval/trajectory")
     train_dir = Path("data/eval/train")
     val_dir = Path("data/eval/val")
@@ -94,6 +98,7 @@ def plot_2d_evaluation():
             plotter.set_trajectory(trajectory)
             plotter.draw()
             plotter.save(train_dir / (f"{i:03d}" + ".jpg"))
+
     print("plot val")
     for i in val_idx:
         _episode_date: str = manual_dates[i]
@@ -109,6 +114,8 @@ def plot_2d_evaluation():
             plotter.save(val_dir / (f"{i:03d}" + ".jpg"))
 
 def rerun_evaluation():
+    # Run this after training model and evaluation
+
     selected_sid = range(0, 50, 4)
     rr.init("DROID-visualized", spawn=True) # MV
     for sid in selected_sid:
@@ -124,6 +131,9 @@ def rerun_evaluation():
         #     print("Error in raw.py:", repr(e))
 
 def plot_depth():
+    # Plot depth vs time.
+    # Analyse tracked trajectory after reprojection into 3D
+
     selected_sid = range(139)
     Path("data/depth_plot").mkdir(exist_ok=True)
     for sid in selected_sid:
@@ -136,7 +146,6 @@ def plot_depth():
         trajectory = trajectory[:, :3]
         _d = (trajectory ** 2).sum(axis=1)
 
-        import matplotlib.pyplot as plt
         fig, axs = plt.subplots(1, 1, figsize=(9, 3))
         t = range(0, len(_d))
         data = _d
@@ -156,9 +165,28 @@ def plot_projection():
         _raw_scene.log()
         _raw_scene.draw_image(_path)
 
+def plot_scenes():
+    from .my_episode_list import saved_episodes
+    print("episodes:", len(saved_episodes))
+    Path("data/projection").mkdir(exist_ok=True)
+    rng = range(359, len(saved_episodes))
+    input()
+    for i in rng:
+        localpath = saved_episodes[i]
+        rr.init("DROID-visualized", spawn=False) # MV
+        _date = read_episode_date(localpath)
+        print(f"{i: >4}", localpath, _date)
+        _path = Path("data/projection") / (_date + ".jpg")
+        _raw_scene = RawScene(localpath, False)
+        _ = [_images for _images in _raw_scene.log()]
+        _raw_scene.draw_image(_path)
+        del _raw_scene
+        del _
+
 
 if __name__ == "__main__":
     #plot_2d_evaluation()
     #rerun_evaluation()
-    plot_depth()
+    #plot_depth()
     #plot_projection()
+    plot_scenes()
