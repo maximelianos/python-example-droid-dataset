@@ -169,19 +169,23 @@ def plot_scenes():
     from .my_episode_list import saved_episodes
     print("episodes:", len(saved_episodes))
     Path("data/projection").mkdir(exist_ok=True)
-    rng = range(359, len(saved_episodes))
+    rng = range(622, len(saved_episodes))
     input()
+    rr.init("DROID-visualized", spawn=False) # MV
     for i in rng:
         localpath = saved_episodes[i]
-        rr.init("DROID-visualized", spawn=False) # MV
         _date = read_episode_date(localpath)
         print(f"{i: >4}", localpath, _date)
         _path = Path("data/projection") / (_date + ".jpg")
+        #try:
         _raw_scene = RawScene(localpath, False)
         _ = [_images for _images in _raw_scene.log()]
         _raw_scene.draw_image(_path)
         del _raw_scene
         del _
+        # except Exception as e:
+        #     print("Couldn't load episode:", repr(e))
+
 
 
 if __name__ == "__main__":

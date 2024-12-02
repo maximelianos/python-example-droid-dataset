@@ -8,7 +8,8 @@ import numpy as np
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-MANUAL_ENABLE = False
+MANUAL_ENABLE = True
+DROID_ROOT = Path(".")
 
 # subsample with replacement
 def random_choice(a: np.ndarray, size: int) -> np.ndarray:
@@ -19,13 +20,14 @@ def random_choice(a: np.ndarray, size: int) -> np.ndarray:
 
 
 # === existing episodes
-with open("data/existing_episodes.json") as f:
+with open(DROID_ROOT / "data/existing_episodes.json") as f:
     existing_episodes = json.load(f)
 # 0 - date
 # 1 - uuid
 # 2 - path
 # [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
 uuid_to_remotepath = {episode[1]: episode[2] for episode in existing_episodes}
+date_to_uuid = {episode[0]: episode[1] for episode in existing_episodes}
 
 
 def convert_uuid_to_localpath(uuid: str):
@@ -39,7 +41,7 @@ date_to_localpath = {episode[0]: convert_uuid_to_localpath(episode[1]) for episo
 
 
 # === annotations
-_target_dir = Path("data") / "droid_raw" / "1.0.1"
+_target_dir = DROID_ROOT / "data" / "droid_raw" / "1.0.1"
 _annotations_file_name = "aggregated-annotations-030724.json"
 annotations: dict[str, dict[str, str]]
 with open(_target_dir / _annotations_file_name) as f:
@@ -72,7 +74,7 @@ manual_dates: list[str] = []
 train_idx: np.ndarray = None
 val_idx: np.ndarray = None
 if MANUAL_ENABLE:
-    with open("data/manual_episodes.json", "r") as f:
+    with open(DROID_ROOT / "data/manual_episodes.json", "r") as f:
         manual_dates = json.load(f)
         manual_paths = [date_to_localpath[date] for date in manual_dates]
 
