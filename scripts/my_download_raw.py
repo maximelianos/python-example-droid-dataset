@@ -81,6 +81,7 @@ def main():
                 break
 
             if ( #"marker" in annot
+                #"autolab" in uuid.lower()
                 "block" in annot
                 #re.findall(regex5, annot)
             ):
@@ -88,7 +89,7 @@ def main():
                 matches = True
         if matches:
             selected_episodes[uuid] = annotations[uuid][save_key]
-    print("no annotations:", no_annotation_cnt)
+    print("episodes without annotation:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
     selected_list = selected_list

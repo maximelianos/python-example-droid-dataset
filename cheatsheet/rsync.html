@@ -1,0 +1,29 @@
+<!DOCTYPE html PUBLIC "-//W3c//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru">
+<head>
+    <meta http-equiv="Content-Type"; conten="text/html; charset=utf-8">	
+    <link href="common.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+
+<h2>Rsync</h2>
+
+<pre>
+# hint: digital ocean
+rsync SOURCE DESTINATION
+rsync -av --delete 00_uni/ /data/disk/00_uni
+-a: copy recursively, preserve time, permission
+-v: verbose
+--delete: files in destination folder
+Don't forget '/' at the end of source folder!
+
+-n: dry run
+</pre>
+
+
+<h2>References</h2>
+<ul>
+</ul>
+
+</body>
+</html>
