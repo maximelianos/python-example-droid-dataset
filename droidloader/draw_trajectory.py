@@ -160,29 +160,30 @@ def plot_projection():
     selected_sid = range(96, 139)
     Path("data/projection").mkdir(exist_ok=True)
     for sid in selected_sid:
-        _path = Path("data/projection") / (f"{sid:03d}" + ".jpg")
+        _path = Path("data/projection") / f"{sid:03d}.jpg"
         _raw_scene = RawScene(manual_paths[sid], False)
         _raw_scene.log()
         _raw_scene.draw_image(_path)
 
-def plot_scenes():
+def plot_download():
+    # plot all downloaded episodes
     from .my_episode_list import saved_episodes
     print("episodes:", len(saved_episodes))
     Path("data/projection").mkdir(exist_ok=True)
-    rng = range(622, len(saved_episodes))
+    ep_range = range(78, len(saved_episodes))
     input()
     rr.init("DROID-visualized", spawn=False) # MV
-    for i in rng:
+    for i in ep_range:
         localpath = saved_episodes[i]
         _date = read_episode_date(localpath)
         print(f"{i: >4}", localpath, _date)
-        _path = Path("data/projection") / (_date + ".jpg")
+        _path = Path("data/projection") / (f"{i:03d}" + ".jpg")
+
         #try:
         _raw_scene = RawScene(localpath, False)
-        _ = [_images for _images in _raw_scene.log()]
+        for _images in _raw_scene.log():
+            pass
         _raw_scene.draw_image(_path)
-        del _raw_scene
-        del _
         # except Exception as e:
         #     print("Couldn't load episode:", repr(e))
 
@@ -193,4 +194,4 @@ if __name__ == "__main__":
     #rerun_evaluation()
     #plot_depth()
     #plot_projection()
-    plot_scenes()
+    plot_download()
