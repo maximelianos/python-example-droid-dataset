@@ -1,6 +1,8 @@
 # Create list of existing episodes sorted by date
 # [
-#   [ date "2023-03-02-15h-14m-31s", uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", path IRIS/success/(date)/(time) ]
+#   [ date "2023-03-02-15h-14m-31s", 
+#     uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", 
+#     path IRIS/success/(date)/(time) ]
 # ]
 # Produce data/existing_episodes.json
 # Prerequisite: download text .json files (300 mb)
