@@ -11,6 +11,14 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 MANUAL_ENABLE = True
 DROID_ROOT = Path(".")
 
+def load_json(path):
+    with open(path, "r") as f:
+        return json.load(f)
+
+def write_json(data, path):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
 # subsample with replacement
 def random_choice(a: np.ndarray, size: int) -> np.ndarray:
     # a has shape [n_vectors, ...]

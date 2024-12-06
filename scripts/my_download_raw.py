@@ -116,13 +116,16 @@ def main():
             regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
             regex2 = r"move.*(forward|backwards|left|right)"
             regex3 = r"(close|drawer|blocks|charger|adapter)"
-            # if len(annot) > 60 or (
-            #     re.findall(regex1, annot)
-            #     or re.findall(regex2, annot)
-            #     or re.findall(regex3, annot)
-            # ):
-            #     matches = False
-            #     break
+            regex4 = r"(rope|cable|towel|cloth|rubber band)"
+            if (
+                len(annot) > 200
+                # or re.findall(regex1, annot)
+                # or re.findall(regex2, annot)
+                # or re.findall(regex3, annot)
+                or re.findall(regex4, annot)
+            ):
+                matches = False
+                break
 
             if ( #"marker" in annot
                 "autolab" in uuid.lower()
@@ -136,7 +139,7 @@ def main():
     print("episodes without annotation:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
-    selected_list = selected_list[::50]
+    selected_list = selected_list[::5]
 
     #selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     selected_annotations = [[i, uuid, annotations[uuid]] for i, uuid in enumerate(selected_list)]

@@ -3,6 +3,7 @@ import json
 import argparse
 import re
 import datetime
+import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -114,7 +115,7 @@ def plot_2d_evaluation():
             plotter.save(val_dir / (f"{i:03d}" + ".jpg"))
 
 def rerun_evaluation():
-    # Run this after training model and evaluation
+    # Run this after training model and saving predicted traj to npy
 
     selected_sid = range(0, 50, 4)
     rr.init("DROID-visualized", spawn=True) # MV
@@ -155,37 +156,21 @@ def plot_depth():
         plt.savefig("data/depth_plot/" + f"{sid:03d}" + ".jpg", dpi=150)
         # input()
 
-def plot_projection():
-    rr.init("DROID-visualized", spawn=False) # MV
-    selected_sid = range(96, 139)
-    Path("data/projection").mkdir(exist_ok=True)
-    for sid in selected_sid:
-        _path = Path("data/projection") / f"{sid:03d}.jpg"
-        _raw_scene = RawScene(manual_paths[sid], False)
-        _raw_scene.log()
-        _raw_scene.draw_image(_path)
-
 def plot_download():
     # plot all downloaded episodes
     from .my_episode_list import saved_episodes
+
     print("episodes:", len(saved_episodes))
     Path("data/projection").mkdir(exist_ok=True)
-    ep_range = range(78, len(saved_episodes))
-    input()
-    rr.init("DROID-visualized", spawn=False) # MV
-    for i in ep_range:
+
+    for i in range(0, len(saved_episodes)):
         localpath = saved_episodes[i]
         _date = read_episode_date(localpath)
         print(f"{i: >4}", localpath, _date)
         _path = Path("data/projection") / (f"{i:03d}" + ".jpg")
 
-        #try:
-        _raw_scene = RawScene(localpath, False)
-        for _images in _raw_scene.log():
-            pass
-        _raw_scene.draw_image(_path)
-        # except Exception as e:
-        #     print("Couldn't load episode:", repr(e))
+        command = ["python", "-m", "droidloader.raw", "--scene", localpath, "--plot", _path]
+        _p: subprocess.CompletedProcess = subprocess.run(command)
 
 
 
@@ -193,5 +178,4 @@ if __name__ == "__main__":
     #plot_2d_evaluation()
     #rerun_evaluation()
     #plot_depth()
-    #plot_projection()
     plot_download()

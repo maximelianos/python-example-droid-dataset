@@ -19,7 +19,7 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo
+from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo, saved_episodes
 
 
 def world_to_camera(t, rot):
@@ -767,13 +767,16 @@ def main():
     # args.visualize: bool
     scene: str
     if args.sid is not None:
-        scene = manual_paths[args.sid]
+        #scene = manual_paths[args.sid]
+        scene = saved_episodes[args.sid]
     else:
         scene = args.scene
     
     rr.init("DROID-visualized", spawn=args.visualize) # MV
     raw_scene: RawScene = RawScene(scene, args.visualize)
-    raw_scene.log()
+    for _images in raw_scene.log():
+        pass
+
     plot_dir = Path(args.plot).parent
     plot_dir.mkdir(parents=True, exist_ok=True)
     raw_scene.draw_image(args.plot)
