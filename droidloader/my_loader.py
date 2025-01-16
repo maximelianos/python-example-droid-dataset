@@ -170,6 +170,7 @@ class DroidLoader:
         self.full_pcd = []
         self.pcd = []
         self.finger_tip = []
+        self.finger_transform = []
 
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
@@ -177,6 +178,7 @@ class DroidLoader:
             self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
             self.finger_tip.append(images["cameras/ext1/finger_tip"])
+            self.finger_transform.append(images["cameras/ext1/finger_transform"])
 
         self.stop = len(self.rgb)
 
@@ -341,6 +343,14 @@ class DroidLoader:
         with open(_path, "wb") as f:
             np.save(f, _intrinsic)
 
+    def save_tcp0(self):
+        # save grip tcp transform (4, 4) in camera 3D
+        _transform = self.finger_transform[0]
+        _path = Path("data/trajectory") / (self.episode_date + "_tcp0.npy")
+        with open(_path, "wb") as f:
+            np.save(f, _transform)
+
+
 
 
 def process_manuals():
@@ -353,13 +363,14 @@ def process_manuals():
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
         loader = DroidLoader(scene)
         loader.read_trajectory()
-        loader.track()
-        loader.track_3d() # [4] = XYZ+color
+        # loader.track()
+        # loader.track_3d() # [4] = XYZ+color
         # loader.read_trajectory() # raw.py will cut pcd now
         # loader.save_pcd()
         #
         loader.save_img0()
         loader.save_intrinsic()
+        loader.save_tcp0()
 
 
 def main():

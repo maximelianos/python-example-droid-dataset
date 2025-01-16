@@ -439,8 +439,9 @@ class RawScene:
             self.imsaver.append(time_stamp_camera, left_image)  # time in ms
             self.imsaver.snap("first", left_image) # save first episode image
 
-            # === finger tip projection
-            _p3d = left_ext @ (self.finger_tip @ [0, 0, 0, 1])  # (4, 4) x (4, 4) x (4)
+            # === finger tip projection: local -> world -> pixels
+            finger_transform = left_ext @ self.finger_tip
+            _p3d = finger_transform @ [0, 0, 0, 1]  # (4, 4) x (4, 4) x (4)
             _p3d =  _p3d / _p3d[3]
             _p2d = camera.left_intrinsic_mat @ pinhole @ _p3d # (3, 3) x (3, 4) x (4)
             _p3d = _p3d[:3] # remove homogenous element
@@ -530,6 +531,9 @@ class RawScene:
             return_dict[f"cameras/{camera_name}/full_pcd"] = point_cloud # p[i, j] = (x, y, z, color)
             return_dict[f"cameras/{camera_name}/pcd"] = cut_pcd # (n_points, xyz)
             return_dict[f"cameras/{camera_name}/finger_tip"] = finger_tip
+            return_dict[f"cameras/{camera_name}/finger_transform"] = finger_transform
+
+
         return return_dict
 
     def log_action(self, i: int) -> None:
@@ -631,7 +635,7 @@ class RawScene:
             yield self.log_cameras_next(i)
 
             if i > 600:
-              break
+                break
 
     # MV
     def draw_image(self, path):

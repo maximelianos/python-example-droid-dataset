@@ -1,3 +1,5 @@
+# Max dataloader
+
 from typing import is_typeddict
 import numpy as np
 from pathlib import Path
@@ -14,7 +16,7 @@ def load_npy(path: Path):
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-class TrainImageLoader:
+class MaxLoader:
     def __init__(self, is_train):
         # === read list of espisodes which was saved by dirlist.py
         self.is_train = is_train
@@ -72,7 +74,7 @@ class TrainImageLoader:
         
 
 def test_loader():
-    loader = TrainImageLoader(True)
+    loader = MaxLoader(True)
     print("number of episodes:", len(loader))
     print("=== Shuffle episode #0")
     print("annotation:", loader.get_annotation(0))

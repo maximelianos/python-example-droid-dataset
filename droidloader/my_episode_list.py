@@ -1,5 +1,5 @@
 # Read data/existing_episodes.json,
-# create global dicts for conversion
+# create global dicts for date, uuid and path conversion.
 
 from pathlib import Path
 import json
