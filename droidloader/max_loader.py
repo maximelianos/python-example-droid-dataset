@@ -70,8 +70,15 @@ class MaxLoader:
 
         _path = Path("data/trajectory/" + episode_date + "_img0.jpg")
         return io.imread(_path).astype(np.float32) / 255
-    
-        
+
+    def get_tcp_0(self, idx) -> np.ndarray:
+        # return matrix (4, 4)
+        episode_date = self._shuffle_idx_to_date(idx)
+
+        _path = Path("data/trajectory/" + episode_date + "_tcp0.npy")
+        return load_npy(_path)
+
+
 
 def test_loader():
     loader = MaxLoader(True)
@@ -84,6 +91,9 @@ def test_loader():
     print(loader.get_start_stop_point(0))
     print("first image:")
     imginfo(loader.get_image_0(0))
+
+    print("first tcp:")
+    print(loader.get_tcp_0(0))
 
 
 

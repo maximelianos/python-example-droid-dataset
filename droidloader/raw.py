@@ -513,7 +513,6 @@ class RawScene:
             if self.visualize:
                 rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
-                
                 rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
                 rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip], colors=red, radii=[0.02]))
 

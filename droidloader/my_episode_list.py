@@ -87,9 +87,7 @@ if MANUAL_ENABLE:
         manual_paths = [date_to_localpath[date] for date in manual_dates]
 
     np.random.seed(0)
-    _idx = np.random.permutation(139) # 140
+    _idx = np.random.permutation(len(manual_dates)) # 140
     train_idx = _idx[:120]
     val_idx = _idx[120:]
-
-
 
