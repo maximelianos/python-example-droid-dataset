@@ -73,10 +73,10 @@ class DroidLoader:
         self.intrinsics = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsics)
 
         # === check if detection was already performed
-        episode_date: str = scene_to_date(scene)
-        mask_path = Path("data/detection/" + episode_date + "_mask.npy")
+        self.episode_date: str = scene_to_date(scene)
+        mask_path = Path("data/detection/" + self.episode_date + "_mask.npy")
         mask_path.parent.mkdir(parents=True, exist_ok=True)
-        box_path = Path("data/detection/" + episode_date + "_box.json")
+        box_path = Path("data/detection/" + self.episode_date + "_box.json")
         if box_path.exists():
             # load box
             with open(box_path, "r") as f:
@@ -87,7 +87,8 @@ class DroidLoader:
                 self.detection.mask = np.load(f)
 
             return
-
+        # TODO
+        return
 
 
         # === run detection only if no cache
@@ -334,6 +335,7 @@ class DroidLoader:
     def save_img0(self):
         # save first image for Max
         _path = Path("data/trajectory") / (self.episode_date + "_img0.jpg")
+        _path.parent.mkdir(parents=True, exist_ok=True)
         io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
 
     def save_intrinsic(self):
@@ -350,13 +352,10 @@ class DroidLoader:
         with open(_path, "wb") as f:
             np.save(f, _transform)
 
-
-
-
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(0, 5):
+    for i in range(0, 2):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
@@ -371,7 +370,6 @@ def process_manuals():
         loader.save_img0()
         loader.save_intrinsic()
         loader.save_tcp0()
-
 
 def main():
     # === Test DroidLoader

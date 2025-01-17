@@ -82,7 +82,7 @@ manual_dates: list[str] = []
 train_idx: np.ndarray = None
 val_idx: np.ndarray = None
 if MANUAL_ENABLE:
-    with open(DROID_ROOT / "data/manual_episodes.json", "r") as f:
+    with open(DROID_ROOT / "data/manual_autolab2.json", "r") as f:
         manual_dates = json.load(f)
         manual_paths = [date_to_localpath[date] for date in manual_dates]
 

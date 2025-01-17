@@ -31,6 +31,7 @@ class MaxLoader:
                 self.ind_list = [0, 1, 2, 3, 4]
             else:
                 self.ind_list = val_idx
+        print(self.ind_list)
 
     def __len__(self):
         return len(self.ind_list)
@@ -87,8 +88,8 @@ def test_loader():
     print("annotation:", loader.get_annotation(0))
     print("intrinsic:")
     print(loader.get_intrinsic(0))
-    print("start and stop point:")
-    print(loader.get_start_stop_point(0))
+    #print("start and stop point:")
+    #print(loader.get_start_stop_point(0))
     print("first image:")
     imginfo(loader.get_image_0(0))
 
