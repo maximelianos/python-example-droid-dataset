@@ -36,6 +36,17 @@ def camera_to_world(t, rot):
     ext[0:3, 3] = t
     return ext
 
+def project(point_3d: np.ndarray, proj: np.ndarray):
+    """ 
+    Multiply projection matrix by point in homogenous coordinates.
+    point_3d: (3) 
+    proj: (3, 4) """
+    p3d = np.ones((4))
+    p3d[:3] = point_3d
+    p2d = proj @ p3d # (3, 4) x (4, 1)
+    p2d = p2d / p2d[2]
+    return p2d[:2]
+
 def draw_sequence(image: np.array, points: list):
     """
     :param points: [(x, y, color)]
@@ -425,6 +436,9 @@ class RawScene:
 
 
 
+
+
+
             # === get frame
             frames = camera.get_next_frame()
             if not frames:
@@ -447,15 +461,24 @@ class RawScene:
             _p3d = _p3d[:3] # remove homogenous element
             _p2d = _p2d / _p2d[2]
             finger_tip = _p3d
-            x, y = _p2d[0], _p2d[1] # gripper_3d, finget_tip, 
-            left_image = draw_sequence(left_image, [(x, y, 1)])
+            x, y = _p2d[0], _p2d[1]
+
+            proj = self.left_proj_mat @ self.finger_tip
+            _points = [
+                [0, 0, 0], # 0
+                [1, 0, 0], # x
+                [0, 1, 0], # y 
+                [0, 0, 1]  # z
+            ]
+            _points_2d = [project(point, proj) for point in _points]
+            # left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # === first touch
             if self.first_touch == i:
                 self.imsaver.snap("grip", left_image)
                 self.imsaver.save_center(time_stamp_camera)
 
-            # === after grip before release
+            # === after grip
             if self.first_touch != -1 and self.is_gripper_closed:
                 self.points.append((x, y, 0))
 
@@ -463,6 +486,7 @@ class RawScene:
             if self.first_touch != -1 and not self.is_gripper_closed:
                 self.imsaver.snap("last", left_image)
 
+            # statistics
             h, w, c = left_image.shape
             if 0 <= y < h and 0 <= x < w:
                 self.visible_count += 1
@@ -513,45 +537,47 @@ class RawScene:
             if self.visualize:
                 rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
-                rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
-                rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip], colors=red, radii=[0.02]))
+                
+                #rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
+                #rr.log(f'cameras/{camera_name}/action_3d', rr.Points3D([finger_tip], colors=red, radii=[0.02]))
 
                 if depth_image is not None:
                     _d = depth_image.copy()
                     _d[_d > 1.8] = 0
-                    rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(_d, depth_range=(0, 1)) )
+                    # rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(_d, depth_range=(0, 1)) )
 
                     # visualize pcd
                     #rr_points = rr.Points3D(positions=cut_pcd[:, :3], radii=[0.002])
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
             return_dict[f"cameras/{camera_name}/left"] = left_image
+            return_dict[f"cameras/{camera_name}/extrinsics"] = left_ext
             return_dict[f"cameras/{camera_name}/depth"] = depth_image
             return_dict[f"cameras/{camera_name}/full_pcd"] = point_cloud # p[i, j] = (x, y, z, color)
             return_dict[f"cameras/{camera_name}/pcd"] = cut_pcd # (n_points, xyz)
-            return_dict[f"cameras/{camera_name}/finger_tip"] = finger_tip
-            return_dict[f"cameras/{camera_name}/finger_transform"] = finger_transform
-
+            return_dict[f"cameras/{camera_name}/finger_tip"] = finger_tip # [x y z]
+            _pose = self.trajectory['observation']['robot_state']['cartesian_position'][i] # [6]
+            return_dict[f"cameras/{camera_name}/flange"] = _pose # [6]
 
         return return_dict
 
     def log_action(self, i: int) -> None:
         # MV
         pose = self.trajectory['observation']['robot_state']['cartesian_position'][i] # [6]
+        trans, rot = extract_extrinsics(pose) # [3], [3, 3]
+        rr.log('action/observation_cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=rot))
+        rr.log('action/observation_cartesian_position/origin', rr.Points3D([trans], radii=[0.02]))
+
         # pose = self.trajectory['action']['robot_state']['cartesian_position'][i]
-        # pose = self.trajectory['action']['target_cartesian_position'][i]
-        # pose = self.trajectory['action']['cartesian_position'][i]
+        # pose = self.trajectory['action']['target_cartesian_position'][i] # HAND MANIPULATOR POS - DONT USE
+        # pose = self.trajectory['action']['cartesian_position'][i] # = action.robot_state
 
         # Link to world coordinate
         # === Robot space
-        trans, mat = extract_extrinsics(pose) # [3], [3, 3]
-        self.gripper_3d = camera_to_world(trans, mat) # [4, 4] transform O -> robot position 
+        trans, rot = extract_extrinsics(pose) # [3], [3, 3]
+        self.gripper_3d = camera_to_world(trans, rot) # [4, 4] from robot coors to world coors
         # END MV
-        
-        pose = self.trajectory['action']['cartesian_position'][i]
-        trans, mat = extract_extrinsics(pose)
-        rr.log('action/cartesian_position/transform', rr.Transform3D(translation=trans, mat3x3=mat))
-        rr.log('action/cartesian_position/origin', rr.Points3D([trans], radii=[0.02]))
+
 
         log_cartesian_velocity('action/cartesian_velocity', self.action['cartesian_velocity'][i])
 

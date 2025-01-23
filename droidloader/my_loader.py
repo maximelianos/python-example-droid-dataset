@@ -60,12 +60,11 @@ class DroidLoader:
         self.start = 0
         self.stop = -1
 
-        self.intrinsics = None
-
         # === read first frame
         self.raw_scene: RawScene = RawScene(scene, False)
         images: dict = self.raw_scene.log_cameras_next(0)
         self.image = images["cameras/ext1/left"]
+        self.extrinsics = images["cameras/ext1/extrinsics"]
 
         # dig out intrinsic from ZED
         _camera = self.raw_scene.cameras["ext1"]
@@ -171,7 +170,7 @@ class DroidLoader:
         self.full_pcd = []
         self.pcd = []
         self.finger_tip = []
-        self.finger_transform = []
+        self.flange = []
 
         for images in self._gripper_frames():
             self.rgb.append(images["cameras/ext1/left"])
@@ -179,7 +178,7 @@ class DroidLoader:
             self.full_pcd.append(images["cameras/ext1/full_pcd"])
             self.pcd.append(images["cameras/ext1/pcd"])
             self.finger_tip.append(images["cameras/ext1/finger_tip"])
-            self.finger_transform.append(images["cameras/ext1/finger_transform"])
+            self.flange.append(images["cameras/ext1/flange"])
 
         self.stop = len(self.rgb)
 
@@ -332,30 +331,28 @@ class DroidLoader:
         with open(pcd_path, "wb") as f:
             np.save(f, _p)
 
-    def save_img0(self):
-        # save first image for Max
+
+    def save_info(self) -> None:
+        # info for max
         _path = Path("data/trajectory") / (self.episode_date + "_img0.jpg")
         _path.parent.mkdir(parents=True, exist_ok=True)
         io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
 
-    def save_intrinsic(self):
-        # save intrinsic matrix for Max
-        _intrinsic = self.intrinsics.matrix  # Nick -> (3, 3)
-        _path = Path("data/trajectory") / (self.episode_date + "_intrinsic.npy")
-        with open(_path, "wb") as f:
-            np.save(f, _intrinsic)
-
-    def save_tcp0(self):
-        # save grip tcp transform (4, 4) in camera 3D
-        _transform = self.finger_transform[0]
-        _path = Path("data/trajectory") / (self.episode_date + "_tcp0.npy")
-        with open(_path, "wb") as f:
-            np.save(f, _transform)
+        _path = Path("data/trajectory") / (self.episode_date + ".json")
+        print(self.extrinsics)
+        print(self.extrinsics.tolist())
+        info = {
+            "camera_intrinsic": self.intrinsics.matrix.tolist(), # From Nick [3, 3]
+            "camera_extrinsic": self.extrinsics.tolist(), # [3, 4]
+            "obj_start_pose": self.flange[0].tolist() # [6]
+        }
+        with open(_path, "w") as f:
+            json.dump(info, f, ensure_ascii=False)
 
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(0, 2):
+    for i in range(0, 1):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
@@ -367,9 +364,8 @@ def process_manuals():
         # loader.read_trajectory() # raw.py will cut pcd now
         # loader.save_pcd()
         #
-        loader.save_img0()
-        loader.save_intrinsic()
-        loader.save_tcp0()
+
+        loader.save_info()
 
 def main():
     # === Test DroidLoader
