@@ -352,7 +352,7 @@ class DroidLoader:
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(0, 1):
+    for i in range(0, 2):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
