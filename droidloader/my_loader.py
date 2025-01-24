@@ -19,6 +19,7 @@ from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 from . import my_episode_list
 from .my_episode_list import manual_paths
+from .my_episode_list import date_to_uuid, annotations, imginfo
 
 # Copied from imitation_flow_nick.ipynb
 import sys
@@ -334,18 +335,26 @@ class DroidLoader:
 
     def save_info(self) -> None:
         # info for max
-        _path = Path("data/trajectory") / (self.episode_date + "_img0.jpg")
+        _path = Path("data/trajectory") / (self.episode_date + "_grip.jpg")
         _path.parent.mkdir(parents=True, exist_ok=True)
         io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
+        
+        _path = Path("data/trajectory") / (self.episode_date + "_first.jpg")
+        io.imsave(_path, self.frame_0["cameras/ext1/left"])  # do I have [0, 255] here?
 
-        _path = Path("data/trajectory") / (self.episode_date + ".json")
-        print(self.extrinsics)
-        print(self.extrinsics.tolist())
+        _uuid: str = date_to_uuid[self.episode_date]
+        # scheme { str uuid: {"language_instruction1": str, ...} }
+        annotation = annotations[_uuid]["language_instruction1"]
+
         info = {
+            "date": self.episode_date,
+            "annotation": annotation,
             "camera_intrinsic": self.intrinsics.matrix.tolist(), # From Nick [3, 3]
             "camera_extrinsic": self.extrinsics.tolist(), # [3, 4]
-            "obj_start_pose": self.flange[0].tolist() # [6]
+            "obj_start_pose": self.flange[0].tolist(), # [6]
+            "obj_end_pose": self.flange[-1].tolist() # [6]
         }
+        _path = Path("data/trajectory") / (self.episode_date + ".json")
         with open(_path, "w") as f:
             json.dump(info, f, ensure_ascii=False)
 

@@ -6,8 +6,7 @@ import numpy as np
 from pathlib import Path
 
 from skimage import io
-from .my_episode_list import date_to_uuid, annotations, imginfo
-from .my_episode_list import manual_dates, train_idx, val_idx
+from .my_episode_list import imginfo, manual_dates
 
 def load_npy(path: Path):
     if not path.exists():
@@ -18,20 +17,12 @@ def load_npy(path: Path):
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
 class MaxLoader:
-    def __init__(self, is_train):
+    def __init__(self):
         pass
 
     def __len__(self):
         return len(manual_dates)
     
-    def get_annotation(self, idx) -> str:
-        # return episode text annotation
-        episode_date = manual_dates[idx]
-
-        # scheme { str uuid: {"language_instruction1": str, ...} }
-        _uuid: str = date_to_uuid[episode_date]
-        return annotations[_uuid]["language_instruction1"]
-
     def get_info(self, idx) -> dict[str, list]:
         _path = Path("data/trajectory/" + manual_dates[idx] + ".json")
         with open(_path, "r") as f:
@@ -39,6 +30,7 @@ class MaxLoader:
         info["camera_intrinsic"] = np.array(info["camera_intrinsic"])
         info["camera_extrinsic"] = np.array(info["camera_extrinsic"])
         info["obj_start_pose"] = np.array(info["obj_start_pose"])
+        info["obj_end_pose"] = np.array(info["obj_end_pose"])
         return info
 
     def get_start_stop_point(self, idx) -> tuple[np.ndarray, np.ndarray]:
@@ -47,10 +39,15 @@ class MaxLoader:
         t = load_npy(_path) # (n_steps, 4)
         t = t[:3]  # remove color
         return (t[0], t[-1])
-
-    def get_image_0(self, idx) -> np.ndarray:
+    
+    def get_image_first(self, idx) -> np.ndarray:
         # return array(h, w, 3)
-        _path = Path("data/trajectory/" + manual_dates[idx] + "_img0.jpg")
+        _path = Path("data/trajectory/" + manual_dates[idx] + "_first.jpg")
+        return io.imread(_path).astype(np.float32) / 255
+
+    def get_image_grip(self, idx) -> np.ndarray:
+        # return array(h, w, 3)
+        _path = Path("data/trajectory/" + manual_dates[idx] + "_grip.jpg")
         return io.imread(_path).astype(np.float32) / 255
 
 
