@@ -14,6 +14,7 @@ import PIL
 import torch
 from torchvision.transforms import v2
 from skimage import io
+from scipy.spatial.transform import Rotation
 
 from .raw import RawScene, scene_to_date
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -39,6 +40,15 @@ import casino
 from DITTO.trajectory import Trajectory
 
 
+def euler_to_quaternion(pose: np.ndarray) -> np.ndarray:
+    """
+    pose: [tx ty tz ax ay az]
+    return: [tx ty tz qw qx qy qz]
+    """
+    translation = pose[:3]
+    rotation = Rotation.from_euler("xyz", np.array(pose[3:])).as_quat(scalar_first=True)
+    return np.concatenate((translation, rotation))
+    
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
@@ -349,14 +359,15 @@ class DroidLoader:
         info = {
             "date": self.episode_date,
             "action_text": annotation,
-            "camera_intrinsic": self.intrinsics.matrix.tolist(), # From Nick [3, 3]
-            "camera_extrinsic": self.extrinsics.tolist(), # [3, 4]
-            "obj_start_pose": self.flange[0].tolist(), # [6]
-            "obj_end_pose": self.flange[-1].tolist(), # [6]
-            "tcp_start_pose": self.frame_0["cameras/ext1/flange"], # [6]
+            "camera_intrinsic": self.intrinsics.matrix[np.newaxis, :, :].tolist(), # From Nick [3, 3]
+            "camera_extrinsic": self.extrinsics[np.newaxis, :3, :].tolist(), # [3, 4]
+            "obj_start_pose": euler_to_quaternion(self.flange[0])[np.newaxis, :].tolist(), # [7]
+            "obj_end_pose": euler_to_quaternion(self.flange[-1])[np.newaxis, :].tolist(), # [7]
+            "tcp_start_pose": euler_to_quaternion(self.frame_0["cameras/ext1/flange"])[np.newaxis, :].tolist(), # [7]
+            "grasp_pose": euler_to_quaternion(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
             "image": self.episode_date + "_grip.jpg",
         }
-        _path = Path("data/trajectory/annotations.jsonl")
+        _path = Path("data/trajectory/_annotations.all.jsonl")
         with open(_path, "a") as f:
             line = json.dumps(info, ensure_ascii=False)
             print(line, file=f)
@@ -364,7 +375,7 @@ class DroidLoader:
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
     print("=== process episodes:", len(manual_paths))
-    for i in range(0, 2):
+    for i in range(1):
         scene = manual_paths[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
