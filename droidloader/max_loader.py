@@ -18,19 +18,20 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 
 class MaxLoader:
     def __init__(self):
-        pass
+        with open("data/trajectory/annotations.jsonl", "r") as f:
+            self.lines = [line.strip() for line in f.readlines()]
+
 
     def __len__(self):
         return len(manual_dates)
     
     def get_info(self, idx) -> dict[str, list]:
-        _path = Path("data/trajectory/" + manual_dates[idx] + ".json")
-        with open(_path, "r") as f:
-            info = json.load(f)
+        info = json.loads(self.lines[idx])
         info["camera_intrinsic"] = np.array(info["camera_intrinsic"])
         info["camera_extrinsic"] = np.array(info["camera_extrinsic"])
         info["obj_start_pose"] = np.array(info["obj_start_pose"])
         info["obj_end_pose"] = np.array(info["obj_end_pose"])
+        info["tcp_start_pose"] = np.array(info["tcp_start_pose"])
         return info
 
     def get_start_stop_point(self, idx) -> tuple[np.ndarray, np.ndarray]:
@@ -52,16 +53,15 @@ class MaxLoader:
 
 
 def test_loader():
-    loader = MaxLoader(True)
+    loader = MaxLoader()
     print("number of episodes:", len(loader))
     print("=== Shuffle episode #0")
-    print("annotation:", loader.get_annotation(0))
     print("info:")
     print(loader.get_info(0))
     #print("start and stop point:")
     #print(loader.get_start_stop_point(0))
     print("first image:")
-    imginfo(loader.get_image_0(0))
+    imginfo(loader.get_image_first(0))
 
 if __name__ == "__main__":
     test_loader()

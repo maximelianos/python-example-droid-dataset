@@ -348,15 +348,18 @@ class DroidLoader:
 
         info = {
             "date": self.episode_date,
-            "annotation": annotation,
+            "action_text": annotation,
             "camera_intrinsic": self.intrinsics.matrix.tolist(), # From Nick [3, 3]
             "camera_extrinsic": self.extrinsics.tolist(), # [3, 4]
             "obj_start_pose": self.flange[0].tolist(), # [6]
-            "obj_end_pose": self.flange[-1].tolist() # [6]
+            "obj_end_pose": self.flange[-1].tolist(), # [6]
+            "tcp_start_pose": self.frame_0["cameras/ext1/flange"], # [6]
+            "image": self.episode_date + "_grip.jpg",
         }
-        _path = Path("data/trajectory") / (self.episode_date + ".json")
-        with open(_path, "w") as f:
-            json.dump(info, f, ensure_ascii=False)
+        _path = Path("data/trajectory/annotations.jsonl")
+        with open(_path, "a") as f:
+            line = json.dumps(info, ensure_ascii=False)
+            print(line, file=f)
 
 def process_manuals():
     rr.init("DROID-visualized", spawn=False) # MV
