@@ -8,6 +8,7 @@ import argparse
 import re
 import datetime
 import numpy as np
+import os
 
 import rerun as rr
 import PIL
@@ -16,7 +17,7 @@ from torchvision.transforms import v2
 from skimage import io
 from scipy.spatial.transform import Rotation
 
-from .raw import RawScene, scene_to_date
+from .raw import RawScene, scene_to_date, camera_to_world
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 from . import my_episode_list
 from .my_episode_list import manual_paths
@@ -48,7 +49,15 @@ def euler_to_quaternion(pose: np.ndarray) -> np.ndarray:
     translation = pose[:3]
     rotation = Rotation.from_euler("xyz", np.array(pose[3:])).as_quat(scalar_first=True)
     return np.concatenate((translation, rotation))
-    
+
+def extract_extrinsics(pose: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Takes a vector [tx ty tz qw qx qy qz] and extracts 
+    the translation vector (3) and the rotation matrix (3, 3)
+    """
+    translation = pose[:3]
+    rotation = Rotation.from_quat(np.array(pose[3:]), scalar_first=True).as_matrix()
+    return (translation, rotation)    
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
@@ -356,16 +365,32 @@ class DroidLoader:
         # scheme { str uuid: {"language_instruction1": str, ...} }
         annotation = annotations[_uuid]["language_instruction1"]
 
+        def add_correction(euler_pose):
+            """ euler rot vector -> rot matrix + correction -> quaternion"""
+            _t = np.array([0, 0, 0.16]) # [x y z]
+            _rot_euler = [0, np.pi, np.pi/2] # [rx ry rz]
+
+            _rot = Rotation.from_euler("xyz", _rot_euler).as_matrix()
+            _correction = camera_to_world(_t, _rot)
+            obj_start_t, obj_start_rot = extract_extrinsics(euler_to_quaternion(euler_pose))
+            robot_transform = camera_to_world(obj_start_t, obj_start_rot) @ _correction # [4, 4]
+
+            _t = (robot_transform @ [0, 0, 0, 1])[:3] # (4, 4) x (4)
+            _rot = Rotation.from_matrix(robot_transform[:3, :3]).as_quat(scalar_first=True)
+            return np.concatenate((_t, _rot))
+
+
         info = {
             "date": self.episode_date,
             "action_text": annotation,
             "camera_intrinsic": self.intrinsics.matrix[np.newaxis, :, :].tolist(), # From Nick [3, 3]
             "camera_extrinsic": self.extrinsics[np.newaxis, :3, :].tolist(), # [3, 4]
-            "obj_start_pose": euler_to_quaternion(self.flange[0])[np.newaxis, :].tolist(), # [7]
-            "obj_end_pose": euler_to_quaternion(self.flange[-1])[np.newaxis, :].tolist(), # [7]
-            "tcp_start_pose": euler_to_quaternion(self.frame_0["cameras/ext1/flange"])[np.newaxis, :].tolist(), # [7]
-            "grasp_pose": euler_to_quaternion(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
-            "image": self.episode_date + "_grip.jpg",
+            "obj_start_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # [7]
+            "obj_end_pose": add_correction(self.flange[-1])[np.newaxis, :].tolist(), # [7]
+            "tcp_start_pose": add_correction(self.frame_0["cameras/ext1/flange"])[np.newaxis, :].tolist(), # [7]
+            "grasp_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
+            "image": self.episode_date + "_first.jpg",
+            "image_grip": self.episode_date + "_grip.jpg"
         }
         _path = Path("data/trajectory/_annotations.all.jsonl")
         with open(_path, "a") as f:
@@ -373,22 +398,16 @@ class DroidLoader:
             print(line, file=f)
 
 def process_manuals():
-    rr.init("DROID-visualized", spawn=False) # MV
+    from .my_episode_list import saved_episodes
+
     print("=== process episodes:", len(manual_paths))
-    for i in range(1):
-        scene = manual_paths[i]
+    for i in range(277, 437):
+        #scene = manual_paths[i]
+        scene = saved_episodes[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
-        loader = DroidLoader(scene)
-        loader.read_trajectory()
-        # loader.track()
-        # loader.track_3d() # [4] = XYZ+color
-        # loader.read_trajectory() # raw.py will cut pcd now
-        # loader.save_pcd()
-        #
-
-        loader.save_info()
+        os.system("python -m droidloader.export " + scene)
 
 def main():
     # === Test DroidLoader

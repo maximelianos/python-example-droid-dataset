@@ -162,8 +162,9 @@ def plot_download():
 
     print("episodes:", len(saved_episodes))
     Path("data/projection").mkdir(exist_ok=True)
+    input("continue?")
 
-    for i in range(0, len(saved_episodes)):
+    for i in range(276, 437): # len(saved_episodes)
         localpath = saved_episodes[i]
         _date = read_episode_date(localpath)
         print(f"{i: >4}", localpath, _date)

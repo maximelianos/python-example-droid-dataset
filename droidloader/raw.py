@@ -21,6 +21,7 @@ from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
 from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo, saved_episodes
 
+VISUAL_ENABLED = False
 
 def world_to_camera(t, rot):
     # world 3d - camera 3d, C^-1
@@ -462,6 +463,7 @@ class RawScene:
             _p2d = _p2d / _p2d[2]
             finger_tip = _p3d
             x, y = _p2d[0], _p2d[1]
+            #left_image = draw_sequence(left_image, [(x, y, 1)])
 
             proj = self.left_proj_mat @ self.finger_tip
             _points = [
@@ -471,7 +473,6 @@ class RawScene:
                 [0, 0, 1]  # z
             ]
             _points_2d = [project(point, proj) for point in _points]
-            # left_image = draw_sequence(left_image, [(x, y, 1)])
 
             # === first touch
             if self.first_touch == i:
@@ -535,7 +536,8 @@ class RawScene:
 
 
             if self.visualize:
-                rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
+                if VISUAL_ENABLED:
+                    rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
                 
                 #rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
@@ -655,7 +657,8 @@ class RawScene:
                 self.urdf_logger.log()
 
             # MV
-            self.log_robot_state(i, self.urdf_logger.entity_to_transform)
+            if VISUAL_ENABLED:
+                self.log_robot_state(i, self.urdf_logger.entity_to_transform)
             self.log_action(i)
             yield self.log_cameras_next(i)
 
