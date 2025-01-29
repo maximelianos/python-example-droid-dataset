@@ -400,8 +400,8 @@ class DroidLoader:
 def process_manuals():
     from .my_episode_list import saved_episodes
 
-    print("=== process episodes:", len(manual_paths))
-    for i in range(277, 437):
+    print("=== process episodes:", len(saved_episodes))
+    for i in range(len(saved_episodes)):
         #scene = manual_paths[i]
         scene = saved_episodes[i]
         print("=== PROCESSING SCENE", i, scene)
