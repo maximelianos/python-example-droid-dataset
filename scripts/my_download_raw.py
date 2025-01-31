@@ -97,8 +97,8 @@ def main():
                 filtered.append(date_uuid_path[i])
         return filtered
 
-    existing_groupped = date_filter(existing_episodes)
-    #existing_groupped = existing_episodes
+    #existing_groupped = date_filter(existing_episodes)
+    existing_groupped = existing_episodes
 
     # === filter by annotation
     # ordered by increasing date
@@ -127,8 +127,10 @@ def main():
                 matches = False
                 break
 
-            if ( #"marker" in annot
-                "autolab" in uuid.lower()
+            if (
+                True
+                #"marker" in annot
+                #"autolab" in uuid.lower()
                 #"block" in annot
                 #re.findall(regex5, annot)
             ):
