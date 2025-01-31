@@ -16,6 +16,7 @@ import torch
 from torchvision.transforms import v2
 from skimage import io
 from scipy.spatial.transform import Rotation
+import cv2
 
 from .raw import RawScene, scene_to_date, camera_to_world
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
@@ -59,7 +60,13 @@ def extract_extrinsics(pose: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     rotation = Rotation.from_quat(np.array(pose[3:]), scalar_first=True).as_matrix()
     return (translation, rotation)    
 
-imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
+def numpy_save(array: np.ndarray, path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as f:
+        np.save(f, array)
+
+
+imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(), img.mean())
 
 class DroidLoader:
     def __init__(self, scene: str):
@@ -365,16 +372,34 @@ class DroidLoader:
         # scheme { str uuid: {"language_instruction1": str, ...} }
         annotation = annotations[_uuid]["language_instruction1"]
 
+        def depth_uint16(depth: np.ndarray) -> np.ndarray:
+            depth[np.isnan(depth)] = np.inf
+            MAX_DEPTH = 3.0 # meters
+            depth[depth > MAX_DEPTH] = MAX_DEPTH
+            # be careful with int overflow
+            depth = (depth / MAX_DEPTH * 65535.0).astype(np.uint16)
+            return depth
+
+        _path = Path("data/trajectory") / (self.episode_date + "_depth0.png")
+        depth_image = self.frame_0["cameras/ext1/depth"]
+        #io.imsave(_path, depth_uint16(depth_image))
+
+        cv2.imwrite(_path, depth_uint16(depth_image))
+
         def add_correction(euler_pose):
             """ euler rot vector -> rot matrix + correction -> quaternion"""
+            obj_start_t, obj_start_rot = extract_extrinsics(euler_to_quaternion(euler_pose))
+            robot_transform = camera_to_world(obj_start_t, obj_start_rot) # (4, 4)
+
+            # correction
             _t = np.array([0, 0, 0.16]) # [x y z]
             _rot_euler = [0, np.pi, np.pi/2] # [rx ry rz]
 
             _rot = Rotation.from_euler("xyz", _rot_euler).as_matrix()
             _correction = camera_to_world(_t, _rot)
-            obj_start_t, obj_start_rot = extract_extrinsics(euler_to_quaternion(euler_pose))
-            robot_transform = camera_to_world(obj_start_t, obj_start_rot) @ _correction # [4, 4]
+            robot_transform = robot_transform @ _correction # (4, 4)
 
+            # (4, 4) to [tx ty tz qw qx qy qz]
             _t = (robot_transform @ [0, 0, 0, 1])[:3] # (4, 4) x (4)
             _rot = Rotation.from_matrix(robot_transform[:3, :3]).as_quat(scalar_first=True)
             return np.concatenate((_t, _rot))
@@ -389,8 +414,10 @@ class DroidLoader:
             "obj_end_pose": add_correction(self.flange[-1])[np.newaxis, :].tolist(), # [7]
             "tcp_start_pose": add_correction(self.frame_0["cameras/ext1/flange"])[np.newaxis, :].tolist(), # [7]
             "grasp_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
+            "robot_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
             "image": self.episode_date + "_first.jpg",
-            "image_grip": self.episode_date + "_grip.jpg"
+            "image_grip": self.episode_date + "_grip.jpg",
+            "image_depth": self.episode_date + "_depth0.png"
         }
         _path = Path("data/trajectory/_annotations.all.jsonl")
         with open(_path, "a") as f:

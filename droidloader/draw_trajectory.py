@@ -131,30 +131,6 @@ def rerun_evaluation():
         # except Exception as e:
         #     print("Error in raw.py:", repr(e))
 
-def plot_depth():
-    # Plot depth vs time.
-    # Analyse tracked trajectory after reprojection into 3D
-
-    selected_sid = range(139)
-    Path("data/depth_plot").mkdir(exist_ok=True)
-    for sid in selected_sid:
-        print(sid, manual_paths[sid])
-        input()
-        _episode_date = manual_dates[sid]
-        _path = Path("data/trajectory") / (_episode_date + "_traj3d.npy") # (n_steps, 4)
-        with open(_path, "rb") as f:
-            trajectory = np.load(f)
-        trajectory = trajectory[:, :3]
-        _d = (trajectory ** 2).sum(axis=1)
-
-        fig, axs = plt.subplots(1, 1, figsize=(9, 3))
-        t = range(0, len(_d))
-        data = _d
-        axs.plot(t, data, ".-")
-        axs.set_xlabel("Step")
-        axs.set_ylabel("Distance")
-        plt.savefig("data/depth_plot/" + f"{sid:03d}" + ".jpg", dpi=150)
-        # input()
 
 def plot_download():
     # plot all downloaded episodes
@@ -178,5 +154,4 @@ def plot_download():
 if __name__ == "__main__":
     #plot_2d_evaluation()
     #rerun_evaluation()
-    #plot_depth()
     plot_download()

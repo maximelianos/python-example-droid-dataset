@@ -8,8 +8,8 @@ import numpy as np
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
-VISUAL = False
-MANUAL_ENABLE = True
+VISUAL = 0
+MANUAL_ENABLE = 0
 DROID_ROOT = Path(".")
 
 def load_json(path):

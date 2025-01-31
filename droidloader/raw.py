@@ -174,15 +174,14 @@ class StereoCamera:
                 self.zed.retrieve_image(left_image, sl.VIEW.LEFT)
                 left_image = np.array(left_image.numpy())
 
-                if VISUAL:
-                    self.zed.retrieve_image(right_image, sl.VIEW.RIGHT)
-                    right_image = np.array(right_image.numpy())
+                self.zed.retrieve_image(right_image, sl.VIEW.RIGHT)
+                right_image = np.array(right_image.numpy())
 
-                    self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
-                    depth_image = np.array(depth_image.numpy())
+                self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
+                depth_image = np.array(depth_image.numpy())
 
-                    self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
-                    point_cloud = np.array(point_cloud.numpy())
+                self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
+                point_cloud = np.array(point_cloud.numpy())
                 return (left_image, right_image, depth_image, point_cloud)
             else:
                 return None
@@ -215,7 +214,7 @@ class RawScene:
         self.trajectory_3d = trajectory_3d
 
         # === init rerun
-        if VISUALIZE:
+        if VISUAL:
             rr.spawn()
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
@@ -230,7 +229,7 @@ class RawScene:
 
         # We ignore the robot_state under action/, don't know why where is two different robot_states.
         self.robot_state = self.trajectory['observation']['robot_state']
-        if VISUALIZE:
+        if VISUAL:
             h5_tree(self.trajectory)
 
         self.trajectory_length = self.metadata["trajectory_length"]
@@ -532,9 +531,8 @@ class RawScene:
             # Ignore points that are far away.
 
 
-            if VISUALIZE:
-                if VISUAL_ENABLED:
-                    rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
+            if VISUAL:
+                rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
                 
                 #rr.log(f'cameras/{camera_name}/action_3d', rr.Transform3D(translation=left_translation, mat3x3=left_rotation))
@@ -654,7 +652,7 @@ class RawScene:
                 self.urdf_logger.log()
 
             # MV
-            if VISUALIZE:
+            if VISUAL:
                 self.log_robot_state(i, self.urdf_logger.entity_to_transform)
             self.log_action(i)
             yield self.log_cameras_next(i)
@@ -817,8 +815,8 @@ def main():
         "gripper_duration": raw_scene.gripper_duration,
         "episode_duration": raw_scene.trajectory_length,
     }
-    with open("data/single_log.json", "w") as f:
-        json.dump(logdata, f, indent=4, ensure_ascii=False)
+    # with open("data/single_log.json", "w") as f:
+    #     json.dump(logdata, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
     main()

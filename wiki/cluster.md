@@ -13,7 +13,7 @@ data /
   trajectory / 2023-03-02-15h-14m-31s_traj3d.npy <--- important
 ```
 
-Login by sssh
+Login by ssh
 
 ```
 ssh velikanm@lmblogin.informatik.uni-freiburg.de -p 2122
@@ -22,6 +22,8 @@ cd octagon/PointFlowMatch
 qsub -q student scripts/train.sh
 python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
 ```
+
+Mount remote folder: `sshfs -p 2122 velikanm@lmblogin.informatik.uni-freiburg.de:/misc/lmbraid19/argusm/CLUSTER/octagon /mnt/lmb`
 
 Submit command: `qsub -l nodes=1:ppn=4:gpus=1,mem=8000,walltime=20:00:00 -q student SCRIPTNAME`
 
