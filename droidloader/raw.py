@@ -19,9 +19,8 @@ import argparse
 from .common import h5_tree, CAMERA_NAMES, log_angle_rot, blueprint_row_images, extract_extrinsics, log_cartesian_velocity, POS_DIM_NAMES, link_to_world_transform
 from .rerun_loader_urdf import URDFLogger
 from .my_image_saver import ImageSaver
-from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo, saved_episodes
+from .my_episode_list import manual_paths, read_episode_date, random_choice, imginfo, saved_episodes, VISUAL
 
-VISUAL_ENABLED = False
 
 def world_to_camera(t, rot):
     # world 3d - camera 3d, C^-1
@@ -175,14 +174,15 @@ class StereoCamera:
                 self.zed.retrieve_image(left_image, sl.VIEW.LEFT)
                 left_image = np.array(left_image.numpy())
 
-                self.zed.retrieve_image(right_image, sl.VIEW.RIGHT)
-                right_image = np.array(right_image.numpy())
+                if VISUAL:
+                    self.zed.retrieve_image(right_image, sl.VIEW.RIGHT)
+                    right_image = np.array(right_image.numpy())
 
-                self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
-                depth_image = np.array(depth_image.numpy())
+                    self.zed.retrieve_measure(depth_image, sl.MEASURE.DEPTH)
+                    depth_image = np.array(depth_image.numpy())
 
-                self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
-                point_cloud = np.array(point_cloud.numpy())
+                    self.zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
+                    point_cloud = np.array(point_cloud.numpy())
                 return (left_image, right_image, depth_image, point_cloud)
             else:
                 return None
@@ -205,7 +205,6 @@ class RawScene:
 
     def __init__(self,
                  dir_path: str,
-                 visualize: bool,
                  trajectory_3d: np.ndarray = None,
             ):
         # trajectory_3d: (n_steps, 3) visualize external trajectory
@@ -213,12 +212,10 @@ class RawScene:
         print("episode", dir_path)
         self.dir_path: Path = Path(dir_path)
         self.episode_date = read_episode_date(self.dir_path)
-        # MV
-        self.visualize = visualize
         self.trajectory_3d = trajectory_3d
 
         # === init rerun
-        if self.visualize:
+        if VISUALIZE:
             rr.spawn()
 
         json_file_paths = glob.glob(str(self.dir_path) + "/*.json")
@@ -233,7 +230,7 @@ class RawScene:
 
         # We ignore the robot_state under action/, don't know why where is two different robot_states.
         self.robot_state = self.trajectory['observation']['robot_state']
-        if self.visualize:
+        if VISUALIZE:
             h5_tree(self.trajectory)
 
         self.trajectory_length = self.metadata["trajectory_length"]
@@ -518,7 +515,7 @@ class RawScene:
                 #     rr.log(f'cameras/{camera_name}/pred_3d', rr.Points3D([point], colors=red, radii=[0.02]))
 
 
-            # === point cloud filtering
+            # === cut out pcd near gripper
             cut_pcd: np.ndarray = None
             if self.calc_3d is not None:
                 h, w, _ = point_cloud.shape
@@ -535,7 +532,7 @@ class RawScene:
             # Ignore points that are far away.
 
 
-            if self.visualize:
+            if VISUALIZE:
                 if VISUAL_ENABLED:
                     rr.log(f"cameras/{camera_name}/left", rr.Image(left_image))
                 # rr.log(f"cameras/{camera_name}/right", rr.Image(right_image))
@@ -548,7 +545,7 @@ class RawScene:
                     _d[_d > 1.8] = 0
                     # rr.log(f"cameras/{camera_name}/depth", rr.DepthImage(_d, depth_range=(0, 1)) )
 
-                    # visualize pcd
+                    # === visualize pcd
                     #rr_points = rr.Points3D(positions=cut_pcd[:, :3], radii=[0.002])
                     #rr.log(f"cameras/{camera_name}/pcd", rr_points)
 
@@ -657,7 +654,7 @@ class RawScene:
                 self.urdf_logger.log()
 
             # MV
-            if VISUAL_ENABLED:
+            if VISUALIZE:
                 self.log_robot_state(i, self.urdf_logger.entity_to_transform)
             self.log_action(i)
             yield self.log_cameras_next(i)
@@ -805,7 +802,7 @@ def main():
         scene = args.scene
     
     rr.init("DROID-visualized", spawn=args.visualize) # MV
-    raw_scene: RawScene = RawScene(scene, args.visualize)
+    raw_scene: RawScene = RawScene(scene)
     for _images in raw_scene.log():
         pass
 

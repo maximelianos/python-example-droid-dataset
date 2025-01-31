@@ -8,6 +8,7 @@ import numpy as np
 
 imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max())
 
+VISUAL = False
 MANUAL_ENABLE = True
 DROID_ROOT = Path(".")
 
