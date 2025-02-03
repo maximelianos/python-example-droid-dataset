@@ -414,7 +414,7 @@ class DroidLoader:
             "obj_end_pose": add_correction(self.flange[-1])[np.newaxis, :].tolist(), # [7]
             "tcp_start_pose": add_correction(self.frame_0["cameras/ext1/flange"])[np.newaxis, :].tolist(), # [7]
             "grasp_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
-            "robot_pose": add_correction(self.flange[0])[np.newaxis, :].tolist(), # = obj_start_pose
+            "robot_pose": [[0., 0., 0., 1., 0., 0., 0.]],
             "image": self.episode_date + "_first.jpg",
             "image_grip": self.episode_date + "_grip.jpg",
             "image_depth": self.episode_date + "_depth0.png"
