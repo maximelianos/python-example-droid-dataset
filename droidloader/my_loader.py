@@ -370,7 +370,7 @@ class DroidLoader:
 
         _uuid: str = date_to_uuid[self.episode_date]
         # scheme { str uuid: {"language_instruction1": str, ...} }
-        annotation = annotations[_uuid]["language_instruction1"]
+        annotation = annotations[_uuid]["language_instruction1"].lower().strip()
 
         def depth_uint16(depth: np.ndarray) -> np.ndarray:
             depth[np.isnan(depth)] = np.inf
