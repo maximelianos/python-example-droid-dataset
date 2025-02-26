@@ -14,6 +14,5 @@ loader.read_trajectory()
 # loader.track_3d() # [4] = XYZ+color
 # loader.read_trajectory() # raw.py will cut pcd now
 # loader.save_pcd()
-#
 
 loader.save_info()

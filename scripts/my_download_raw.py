@@ -117,12 +117,14 @@ def main():
             regex2 = r"move.*(forward|backwards|left|right)"
             regex3 = r"(close|drawer|blocks|charger|adapter)"
             regex4 = r"(rope|cable|towel|cloth|rubber band)"
+            regex5 = r"(door|spoon|kettle|curtain|hang|pillow|fold|push|press|tissue|scoop|cook|stir|switch)"
             if (
                 len(annot) > 200
                 # or re.findall(regex1, annot)
                 # or re.findall(regex2, annot)
                 # or re.findall(regex3, annot)
                 or re.findall(regex4, annot)
+                or re.findall(regex5, annot)
             ):
                 matches = False
                 break
@@ -141,7 +143,7 @@ def main():
     print("episodes without annotation:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
-    selected_list = selected_list[::5]
+    selected_list = selected_list[:10000]
 
     #selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     selected_annotations = [[i, uuid, annotations[uuid]] for i, uuid in enumerate(selected_list)]
@@ -151,9 +153,9 @@ def main():
     input("continue...")
 
     # === download
-    for uuid in selected_list:
+    for iteration, uuid in enumerate(selected_list):
         # IPRL+w026bb9b+2023-04-20-23h-28m-09s
-        print("=== download", uuid)
+        print("=== download {:,d} of {:,d}, uuid".format(iteration, len(selected_list)),  uuid)
 
         # extract date
         regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'

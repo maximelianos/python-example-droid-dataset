@@ -360,38 +360,54 @@ class DroidLoader:
 
 
     def save_info(self) -> None:
-        # info for max
-        _path = Path("data/trajectory") / (self.episode_date + "_grip.jpg")
-        _path.parent.mkdir(parents=True, exist_ok=True)
-        io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
+        """
+        Export episode for Max. Following data is saved:
+        (DATE format is YYYY-MM-DD-HHh-MMm-SSs)
+
+        DATE_first.jpg
+        DATE_grip.jpg
+        DATE_depth0.png
+
+        Camera, poses, action annotation are saved to _annotations.all.jsonl
+        """
         
+        # save first image
         _path = Path("data/trajectory") / (self.episode_date + "_first.jpg")
         io.imsave(_path, self.frame_0["cameras/ext1/left"])  # do I have [0, 255] here?
 
+        # save grip moment image
+        _path = Path("data/trajectory") / (self.episode_date + "_grip.jpg")
+        _path.parent.mkdir(parents=True, exist_ok=True)
+        io.imsave(_path, self.rgb[0])  # do I have [0, 255] here?
+
+        # get annotation
         _uuid: str = date_to_uuid[self.episode_date]
         # scheme { str uuid: {"language_instruction1": str, ...} }
         annotation = annotations[_uuid]["language_instruction1"].lower().strip()
 
+        # save depth as PNG. depth_scaled = depth / 3.0 * 65535.0
         def depth_uint16(depth: np.ndarray) -> np.ndarray:
             depth[np.isnan(depth)] = np.inf
             MAX_DEPTH = 3.0 # meters
             depth[depth > MAX_DEPTH] = MAX_DEPTH
             # be careful with int overflow
-            depth = (depth / MAX_DEPTH * 65535.0).astype(np.uint16)
-            return depth
-
+            depth_scaled = (depth / MAX_DEPTH * 65535.0).astype(np.uint16)
+            return depth_scaled
         _path = Path("data/trajectory") / (self.episode_date + "_depth0.png")
         depth_image = self.frame_0["cameras/ext1/depth"]
-        #io.imsave(_path, depth_uint16(depth_image))
-
         cv2.imwrite(_path, depth_uint16(depth_image))
 
         def add_correction(euler_pose):
-            """ euler rot vector -> rot matrix + correction -> quaternion"""
+            """ euler_pose [tx ty tz rx ry rz] -> 
+                rot matrix * correction ->
+                quaternion_pose [tx ty tz qw qx qy qz] """
+            # extract t and rot
             obj_start_t, obj_start_rot = extract_extrinsics(euler_to_quaternion(euler_pose))
-            robot_transform = camera_to_world(obj_start_t, obj_start_rot) # (4, 4)
 
-            # correction
+            # convert t and rot to matrix C (4, 4)
+            robot_transform = camera_to_world(obj_start_t, obj_start_rot)
+
+            # correction (4, 4)
             _t = np.array([0, 0, 0.16]) # [x y z]
             _rot_euler = [0, np.pi, np.pi/2] # [rx ry rz]
 
@@ -451,7 +467,6 @@ def main():
         scene = manual_paths[args.sid]
     else:
         scene = args.scene
-
     loader = DroidLoader(scene)
     loader.read_trajectory()
     start, _ = loader.get_start_stop()
