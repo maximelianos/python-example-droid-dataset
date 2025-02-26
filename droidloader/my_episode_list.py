@@ -11,6 +11,7 @@ imginfo = lambda img: print(type(img), img.dtype, img.shape, img.min(), img.max(
 VISUAL = 0
 MANUAL_ENABLE = 0
 DROID_ROOT = Path(".")
+DOWNLOAD_ROOT = "droid_raw"
 
 def load_json(path):
     with open(path, "r") as f:
@@ -44,13 +45,13 @@ def convert_uuid_to_localpath(uuid: str):
     # remotepath = IPRL/success/2023-02-28/Tue_Feb_28_20:30:07_2023
     parts = uuid_to_remotepath[uuid].split("/")
     # localpath = data/droid_raw/1.0.1 / success/2023-02-28/Tue_Feb_28_20:30:07_2023
-    localpath = Path("data/droid_raw/1.0.1/") / "/".join(parts[1:])
+    localpath = Path("data/" + DOWNLOAD_ROOT + "/1.0.1/") / "/".join(parts[1:])
     return str(localpath)
 date_to_localpath = {episode[0]: convert_uuid_to_localpath(episode[1]) for episode in existing_episodes}
 
 
 # === annotations
-_target_dir = DROID_ROOT / "data" / "droid_raw" / "1.0.1"
+_target_dir = DROID_ROOT / "data" / DOWNLOAD_ROOT / "1.0.1"
 _annotations_file_name = "aggregated-annotations-030724.json"
 annotations: dict[str, dict[str, str]]
 with open(_target_dir / _annotations_file_name) as f:

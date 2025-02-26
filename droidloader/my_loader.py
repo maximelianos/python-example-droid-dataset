@@ -441,12 +441,16 @@ class DroidLoader:
             print(line, file=f)
 
 def process_manuals():
-    from .my_episode_list import saved_episodes
+    from .my_episode_list import saved_episodes, manual_paths
+    process_list = saved_episodes
 
-    print("=== process episodes:", len(saved_episodes))
-    for i in range(len(saved_episodes)):
-        #scene = manual_paths[i]
-        scene = saved_episodes[i]
+    print("=== process episodes:", len(process_list))
+    input()
+
+    Path("data/trajectory").mkdir(parents=True, exist_ok=True)
+    for i in range(len(process_list)):
+        scene = process_list[i]
+        #scene = saved_episodes[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
