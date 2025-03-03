@@ -2,7 +2,6 @@
 
 # Read video and trajectory, pipe images to rerun.
 
-from collections.abc import Generator
 import numpy as np
 from pathlib import Path
 import rerun as rr
@@ -72,19 +71,6 @@ def draw_sequence(image: np.array, points: list):
 
     return canvas
 
-def scene_to_date(scene: str):
-    # uuid of episode
-    json_file = list(Path(scene).glob("*json"))[0]
-    with open(json_file, "r") as f:
-        metadata = json.load(f)
-    uuid = metadata["uuid"]
-
-    # extract date
-    regex = r'\w+\+\w+\+(\d+-\d+-\d+-\w+-\w+-\w+)$'
-    import re
-    date_str = re.findall(regex, uuid)[0]
-
-    return date_str
 
 class StereoCamera:
     left_images: list[np.ndarray]

@@ -13,7 +13,7 @@ from skimage import io
 import PIL
 from torchvision.transforms import v2
 
-from .raw import RawScene, scene_to_date
+from .raw import RawScene
 from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 from .my_episode_list import manual_paths, date_to_localpath, manual_dates, read_episode_date, train_idx, val_idx, imginfo
 

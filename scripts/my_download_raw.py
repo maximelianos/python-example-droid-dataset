@@ -143,7 +143,7 @@ def main():
     print("episodes without annotation:", no_annotation_cnt)
     print("selected:", len(selected_episodes))
     selected_list = list(selected_episodes.keys())
-    selected_list = selected_list[7900:15000]
+    selected_list = selected_list[7960:15000]
 
     #selected_annotations = {uuid : annotations[uuid] for uuid in selected_list}
     selected_annotations = [[i, uuid, annotations[uuid]] for i, uuid in enumerate(selected_list)]

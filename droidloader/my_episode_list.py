@@ -27,6 +27,19 @@ def random_choice(a: np.ndarray, size: int) -> np.ndarray:
     ind = np.random.randint(0, len(a), size=size)
     return a[ind]
 
+def world_to_camera(t, rot):
+    # world 3d - camera 3d, C^-1
+    ext = np.eye(4)
+    ext[0:3, 0:3] = rot.T
+    ext[0:3, 3] = -rot.T @ t
+    return ext
+
+def camera_to_world(t, rot):
+    # inverse matrix, C
+    ext = np.eye(4)
+    ext[0:3, 0:3] = rot
+    ext[0:3, 3] = t
+    return ext
 
 
 # === existing episodes

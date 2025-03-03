@@ -115,14 +115,14 @@ def main():
             annot = annotations[uuid][annot_key].lower() # very important!
             regex1 = r"(take|remove|from).*(cup|mug|pot|bowl)"
             regex2 = r"move.*(forward|backwards|left|right)"
-            regex3 = r"(close|drawer|blocks|charger|adapter)"
+            regex3 = r"(close|drawer|charger|adapter)"
             regex4 = r"(rope|cable|towel|cloth|rubber band)"
             regex5 = r"(door|spoon|kettle|curtain|hang|pillow|fold|push|press|tissue|scoop|cook|stir|switch)"
             if (
                 len(annot) > 200
                 # or re.findall(regex1, annot)
                 # or re.findall(regex2, annot)
-                # or re.findall(regex3, annot)
+                or re.findall(regex3, annot)
                 or re.findall(regex4, annot)
                 or re.findall(regex5, annot)
             ):

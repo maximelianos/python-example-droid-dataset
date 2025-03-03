@@ -12,34 +12,32 @@ import os
 
 import rerun as rr
 import PIL
-import torch
-from torchvision.transforms import v2
 from skimage import io
 from scipy.spatial.transform import Rotation
 import cv2
 
-from .raw import RawScene, scene_to_date, camera_to_world
-from .my_sam import DetectionResult, DetectionProcessor, plot_detections
+from .raw import RawScene
+#from .my_sam import DetectionResult, DetectionProcessor, plot_detections
 from . import my_episode_list
-from .my_episode_list import manual_paths
-from .my_episode_list import date_to_uuid, annotations, imginfo
+from .my_episode_list import manual_paths, MANUAL_ENABLE
+from .my_episode_list import date_to_uuid, read_episode_date, annotations, imginfo, camera_to_world
 
-# Copied from imitation_flow_nick.ipynb
-import sys
-from pathlib import Path
-from typing import List, Dict
-
-import ipywidgets
-import numpy as np
-import open3d as o3d
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
+# === Copied from imitation_flow_nick.ipynb
+# import sys
+# from pathlib import Path
+# from typing import List, Dict
+#
+# import ipywidgets
+# import numpy as np
+# import open3d as o3d
+# from tqdm import tqdm
+# import matplotlib.pyplot as plt
+#
 import casino
-#from DITTO.data import Hands23Dataset, get_all_runs
-#from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
-# from DITTO.tracking_3D import Step3DMethod
-from DITTO.trajectory import Trajectory
+# #from DITTO.data import Hands23Dataset, get_all_runs
+# #from DITTO.config import BASE_RECORDING_PATH, TIME_STEPS
+# # from DITTO.tracking_3D import Step3DMethod
+# from DITTO.trajectory import Trajectory
 
 
 def euler_to_quaternion(pose: np.ndarray) -> np.ndarray:
@@ -76,7 +74,6 @@ class DroidLoader:
 
         self.scene = scene
         self.image: np.ndarray = None
-        self.detection: DetectionResult = DetectionResult(None, None, None)
         self.is_gripper_closed = False
 
         self.rgb = []
@@ -97,9 +94,16 @@ class DroidLoader:
         _camera = self.raw_scene.cameras["ext1"]
         _left_intrinsics: np.ndarray = _camera.left_intrinsic_mat
         self.intrinsics = casino.pointcloud.Intrinsics.from_matrix(_left_intrinsics)
+        self.episode_date: str = read_episode_date(scene)
+
+
+        #self._load_detection()
+        #self._run_detection()
+
+    def _load_detection(self):
+        self.detection: DetectionResult = DetectionResult(None, None, None)
 
         # === check if detection was already performed
-        self.episode_date: str = scene_to_date(scene)
         mask_path = Path("data/detection/" + self.episode_date + "_mask.npy")
         mask_path.parent.mkdir(parents=True, exist_ok=True)
         box_path = Path("data/detection/" + self.episode_date + "_box.json")
@@ -113,10 +117,9 @@ class DroidLoader:
                 self.detection.mask = np.load(f)
 
             return
-        # TODO
-        return
+    
 
-
+    def _run_detection(self):
         # === run detection only if no cache
         detector_id = "IDEA-Research/grounding-dino-base"
         segmenter_id = "facebook/sam-vit-base"
@@ -241,7 +244,7 @@ class DroidLoader:
         # Copied from imitation_flow_nick.ipynb
 
         # === check if trajectory was already computed
-        self.episode_date: str = scene_to_date(self.scene)
+        self.episode_date: str = read_episode_date(self.scene)
         trajectory_path = Path("data/trajectory/" + self.episode_date + "_traj.npy")
         trajectory_path.parent.mkdir(parents=True, exist_ok=True)
         if trajectory_path.exists():
@@ -385,13 +388,15 @@ class DroidLoader:
         # scheme { str uuid: {"language_instruction1": str, ...} }
         annotation = annotations[_uuid]["language_instruction1"].lower().strip()
 
-        # save depth as PNG. depth_scaled = depth / 3.0 * 65535.0
+        # save depth as PNG in millimeters
         def depth_uint16(depth: np.ndarray) -> np.ndarray:
             depth[np.isnan(depth)] = np.inf
             MAX_DEPTH = 3.0 # meters
             depth[depth > MAX_DEPTH] = MAX_DEPTH
             # be careful with int overflow
-            depth_scaled = (depth / MAX_DEPTH * 65535.0).astype(np.uint16)
+            depth_scaled = (depth * 1000.0).astype(np.uint16)
+            print("depth")
+            imginfo(depth_scaled)
             return depth_scaled
         _path = Path("data/trajectory") / (self.episode_date + "_depth0.png")
         depth_image = self.frame_0["cameras/ext1/depth"]
@@ -409,7 +414,7 @@ class DroidLoader:
 
             # correction (4, 4)
             _t = np.array([0, 0, 0.16]) # [x y z]
-            _rot_euler = [0, np.pi, np.pi/2] # [rx ry rz]
+            _rot_euler = [0, 0, 0] # [rx ry rz]
 
             _rot = Rotation.from_euler("xyz", _rot_euler).as_matrix()
             _correction = camera_to_world(_t, _rot)
@@ -442,15 +447,17 @@ class DroidLoader:
 
 def process_manuals():
     from .my_episode_list import saved_episodes, manual_paths
-    process_list = saved_episodes
+    if MANUAL_ENABLE:
+        process_list = manual_paths
+    else:
+        process_list = saved_episodes
 
     print("=== process episodes:", len(process_list))
-    input()
+    input("continue...")
 
     Path("data/trajectory").mkdir(parents=True, exist_ok=True)
     for i in range(len(process_list)):
         scene = process_list[i]
-        #scene = saved_episodes[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
         Path("data/trajectory_3d.npy").unlink(missing_ok=True)
