@@ -456,7 +456,7 @@ def process_manuals():
     input("continue...")
 
     Path("data/trajectory").mkdir(parents=True, exist_ok=True)
-    for i in range(520, len(process_list)):
+    for i in range(len(process_list)):
         scene = process_list[i]
         print("=== PROCESSING SCENE", i, scene)
         Path("data/trajectory.npy").unlink(missing_ok=True)
