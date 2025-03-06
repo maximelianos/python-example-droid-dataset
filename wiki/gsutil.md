@@ -1,1 +1,0 @@
-[How to download a part of data](https://github.com/droid-dataset/droid/issues/6#issuecomment-2050103951)

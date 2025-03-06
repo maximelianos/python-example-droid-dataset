@@ -1,4 +1,4 @@
-# Plan export train data for Max
+# Plan export for Max
 
 * raw.py - for each frame return TCP XYZ + rotation in a matrix 4x4
   * `log_cameras_next() - return_dict["finger_transform"]`
@@ -8,33 +8,35 @@
   * tcp pose (tx ty tz qw qx qy qz)
 * test_real.ipynb - visualize coordinate frame
 
-# cVLA requirements
+# cVLA setup
 
+Pip requirements
 ```
 accelerate==1.3.0
 transformers==4.48.0
 ```
 
-# Mount LMB
-
+Mount LMB
 ```
 sshfs -p 2122 velikanm@lmblogin.informatik.uni-freiburg.de:/misc /data
 ln -s $HOME/octagon/python-example-droid-dataset/data data
 ```
 
-Datasets on LMB
-
-```
 My datasets on LMB:
+```
 /data/lmbraid19/argusm/CLUSTER/octagon/python-example-droid-dataset/data/droid_raw/
+```
+
 Max datasets:
-/mnt/lmb/lmbraid19/argusm/datasets
+```
+/data/lmbraid19/argusm/datasets
 ```
 
 # How to run GT markup
 
 Visualize one trajectory
 ```
+conda activate pfp_env
 $ python -m droidloader.raw --visualize --sid 0
 Date format: YYYY-MM-DD-HHh-MMm-SSs
 Example: 2023-07-07-15h-03m-33s
@@ -43,12 +45,18 @@ Example: 2023-07-07-15h-03m-33s
 Export data
 ```
 $ export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
+IMPORTANT: my_episode_list.py - MANUAL_ENABLE=1, DOWNLOAD_ROOT=droid_raw_block2
 $ python -m droidloader.my_loader        # calls process_manuals()
 Open test_real.ipynb
 Log "cartesian_position" in raw.py
 ```
 
 # Export variants
+
+**Variant Marker** reject len > 60 or r"(take|remove|from).*(cup|mug|pot|bowl)" or r"move.*(forward|backwards|left|right)"
+
+**Variant Block** reject len > 60 or r"(close|drawer)"
+
 
 **Variant AUTOLab.** 5077 episodes
 
@@ -74,4 +82,4 @@ Export: `clevr-real-block-v3`
 
 **Variant block-2000.** REJECT len > 200; regex3 = r"(close|drawer|charger|adapter)"; regex4 = r"(rope|cable|towel|cloth|rubber band)"; regex5 = r"(door|spoon|kettle|curtain|hang|pillow|fold|push|press|tissue|scoop|cook|stir|switch)"; ACCEPT "block".
 
-Matched 1800
+1800 matching.

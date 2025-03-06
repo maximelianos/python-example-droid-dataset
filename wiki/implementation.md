@@ -1,15 +1,25 @@
-# Implementation and testing
+# Implementation
 
-## Run
+## Rerun visualize
 
-Compute trajectory DITTO + rerun
+```
+Episode index to episode localpath
+$ python my_plot_everything.py
+
+Visualize an episode
+$ python -m droidloader.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
+
+Compute statistics for all episodes in process04.ipynb
+```
+
+## DITTO tracking + Rerun
 ```
 export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
 python -m droidloader.my_loader --sid 0
 python -m droidloader.raw --visualize --sid 0
 ```
 
-## Eugenio
+## Eugenio 3D point cloud
 
 Test npy-only dataloader: `python -m droidloader.train_loader`
 
@@ -23,10 +33,10 @@ subs_factor: 1, 3
 batch_size: 64, 128
 ```
 
-### Plot evaluation
+### Evaluation plotting
 
 ```
-- pfp/data/dataset_pcd
+- pfp/data/dataset_pcd.py
   batchsize = 1
 - train_loader
   is_test = True
@@ -34,9 +44,9 @@ python scripts/evaluate.py log_wandb=False env_runner.env_config.vis=False polic
 python -m droidloader.draw_trajectory
 ```
 
-Implementation:
+Plotting implementation:
 ```
-EvalResults - global buffer...
+EvalResults - global buffer!
 
 robot_state: numpy (10)
 obs: (4096, 3)
@@ -54,7 +64,7 @@ point_2d = point_2d / point_2d[2] # [x/z, y/z, 1] = [x, y, z]
 x, y = point_2d[0], point_2d[1]
 ```
 
-### Plan
+### Implemented
 
 1. Run Eugenio evaluation at `pfp / envs / rlbench_runner.py`
 2. Use `eval_logger` to save trajectory to npy
@@ -62,7 +72,7 @@ x, y = point_2d[0], point_2d[1]
 
 ### Eugenio training
 
-(to run with DROID data edit `pfp/data/dataset_pcd.py`)
+(to run with DROID data, change `pfp/data/dataset_pcd.py`)
 ```
 python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplug_charger +experiment=pointflowmatch_so3
 ```
@@ -73,66 +83,32 @@ python scripts/train.py log_wandb=False dataloader.num_workers=0 task_name=unplu
 
 Model arch: `pfp / policy / fm_so3_policy`
 
-Implemented ReplayBuffer
+Implemented "replay buffer"
 
 ```
 pcd [n_steps, n_points, 3]
 step_start:step_start+MAX_STEPS + padding by same point until MAX_STEPS
 ```
 
-### Plan
+### Implemented
 
-1. Input: sequence of rgb [batch, n, c, h, w] + seq of points [batch, n, 2] (x, y), later - object mask, text
+1. Input: sequence of rgb [batch, n, c, h, w] + seq of points [batch, n, 2] (x, y)
 2. Output: 2D point in next 30 frames [batch, 30, 2] (x, y)
 
-## Single loader
+## Single episode loader
 
 `my_loader.py`
 * Select episodes manually by deleting pictures, save to `data/manual_episodes.json` in format `2023-10-27-19h-48m-17s`
 * Cache object box and segmentation. Key: episode date
 * Cache computed trajectory
 
-### Run
+Test
 
 ```
 $ python -m droidloader.my_loader --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
 ```
 
-## Episode selection
-
-```
-Variant Marker
-filter "marker"
-- reject if
-  len > 60 or
-  r"(take|remove|from).*(cup|mug|pot|bowl)" or
-  r"move.*(forward|backwards|left|right)"
-
-Variant Block
-filter "block"
-- reject if 
-  len > 60 or
-  r"(close|drawer)"
-```
-
-Good examples
-* ind 34098, local ind 810, AUTOLab+0d4edc83+2023-10-27-19h-48m-17s
-* GuptaLab+553d1bd5+2023-05-19-10h-37m-18s | Put the orange block on top of the green block | 60 episodes
-* AUTOLab+84bd5053+2023-08-17-17h-02m-12s | Put the yellow block in the cup | 100 episodes!
-
-Bad examples
-* RAIL+d027f2ae+2023-06-15-12h-24m-53s | Put the green block behind the orange one
-* Unstack the four blocks on the right
-* RAIL+80edfcb1+2023-06-30-15h-37m-23s | Move the yellow block to the left
-* TRI+938130c4+2023-08-08-09h-52m-26s | Transfer the blocks from the box to the storage unit
-* TRI+938130c4+2023-08-09-16h-51m-09s | Use the chopsticks to stir the blocks in the wooden box. 
-* AUTOLab+t3d58310+2023-08-12-18h-07m-13s | Put all the building blocks on the table into the black bowl
-
-Unsure
-* RAIL+d027f2ae+2023-10-09-11h-05m-13s | Put the yellow block in the red bowl 
-* AUTOLab+5d05c5aa+2023-10-14-21h-42m-30s | Put the yellow, blue, red and green lego bricks in the bowl
-
-### Data structure
+### Episode identification
 
 ```
 --- data/manual_episodes.json
@@ -141,9 +117,7 @@ uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s"
 path IRIS/success/(date)/(time)
 ```
 
-
-
-## DITTO
+## DITTO object tracking
 
 ```
 $ export PYTHONPATH=$PYTHONPATH:/home/argusm/lang/RAFT/core
@@ -170,17 +144,3 @@ Debug points
 ### Run .trajectory_3D
 
 The result trajectory is [4, 4] - [:3, :3] rotation + [:3, 3] translation relative to camera origin.
-
-## Rerun
-
-Visualize
-
-```
-Episode index to episode localpath
-$ python my_plot_everything.py
-
-Visualize an episode
-$ python -m droidloader.raw --visualize --scene data/droid_raw/1.0.1/success/2023-10-27/Fri_Oct_27_19:48:17_2023
-
-Compute statistics for all episodes in process04.ipynb
-```

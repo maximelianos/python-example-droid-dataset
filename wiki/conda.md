@@ -1,6 +1,6 @@
 # Conda environment
 
-## Basic conda commands
+## Basic commands
 
 ```
 $ conda env list
@@ -16,7 +16,7 @@ alias c='conda activate pfp_env'
 alias j='conda activate pfp_env && cd $HOME/octagon && jupyter notebook'
 ```
 
-## [Eugenio](http://pointflowmatch.cs.uni-freiburg.de/) environment
+## [Eugenio](http://pointflowmatch.cs.uni-freiburg.de/) environment setup
 
 Add env variables to `.bashrc`
 
@@ -49,7 +49,7 @@ pip install rerun-sdk==0.15.1
 pip install gymnasium
 ```
 
-## DITTO environment
+## DITTO environment setup
 
 ```
 $ pip install torch torchvision transformers  # already present in Egenio
@@ -64,7 +64,7 @@ $ pip install ruamel.yaml
 $ pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
 
-## [Rerun](https://github.com/rerun-io/python-example-droid-dataset/tree/master) environment
+## [Rerun](https://github.com/rerun-io/python-example-droid-dataset/tree/master) environment setup
 
 ```
 $ pip install --force-reinstall charset-normalizer==3.1.0
@@ -97,7 +97,7 @@ Filter description by regex and download videos
 $ python scripts/my_download_raw.py --debug
 ```
 
-## ZED
+## ZED setup
 
 1. [DROID page](https://droid-dataset.github.io/droid/software-setup/host-installation.html)
 2. [Download ZED](https://www.stereolabs.com/docs/installation/linux) for Ubuntu 22
