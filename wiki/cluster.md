@@ -27,6 +27,13 @@ Mount remote folder: `sshfs -p 2122 velikanm@lmblogin.informatik.uni-freiburg.de
 
 Submit command: `qsub -l nodes=1:ppn=4:gpus=1,mem=8000,walltime=20:00:00 -q student SCRIPTNAME`
 
+Computer Vision:
+
+```
+ssh <username>@login.informatik.uni-freiburg.de
+ssh tfpool42
+```
+
 ## Preparation
 
 1. `pip install --force-reinstall "huggingface_hub<0.26"`
