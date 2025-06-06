@@ -1,0 +1,64 @@
+\documentclass[addpoints]{exam}
+\pagestyle{headandfoot}
+
+\usepackage[T1,T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+
+\usepackage{amsmath, amsfonts}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{parskip}
+\usepackage{tikz} % drawing schemes
+\usepackage{hyperref} % references
+\newcommand{\semester}{WS 2024/2025}
+\runningheader{\students}{}{\semester}
+\runningfooter{}{\thepage}{}
+\headrule
+\footrule
+
+% ---------- Modify team name, students (matriculation number), exercise number here ----------
+\newcommand{\teamname}{dl2023-team1}
+\newcommand{\students}{Великанов Максим}
+\newcommand{\assignmentnumber}{1}
+% ---------- End Modify ----------
+
+\title{mAP for beam search}
+\author{Великанов Максим}
+\date{\today}
+
+\begin{document}
+    \maketitle
+
+    % ---------- Add Solution below here ----------
+
+    The outline for computing the precision-recall curve and mAP is as follows:
+    \begin{enumerate}
+    	\item Make a list of all predictions. Confidence of a prediction is the log-probability of the beam under the model:\\
+    	\verb|pred = [(episode_i, conf_i, traj_i)]; len(pred) = N_pred|\\
+    	Make a list of true trajectories:\\
+    	\verb|true = [(episode_i, 1.0, traj_i)]; len(true) = N_true|
+    	\item Sort predictions by descending confidence
+    	\item For each predicted trajectory:
+    	\begin{enumerate}
+    		\item calculate the L1 error with the true trajectory from the same episode
+    		\item if \verb|error > error_thr| or another prediction was already found for this true trajectory, it is a false positive
+    		\item otherwise, the prediction is a true positive
+    	\end{enumerate}
+    	\item Calculate \verb|precision_i| and \verb|recall_i| for the first \verb|i| predictions (which is equivalent to ignoring all predictions with \verb|conf_j < conf_i|). Precision is \verb|N_TP/N_pred|, recall is \verb|N_TP/N_true|.
+    	\item Plot the (recall, precision) points and compute Area Under Curve (AUC)
+    	\item Repeat the AUC calculation for several L1 error thresholds, the average AUC is the mean Average Precision
+    \end{enumerate}
+    
+    % ---------- End of Document ----------
+    
+    \section{References}
+    \begin{enumerate}
+    	\item \href{https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173}{Jonathan Hui}
+    	\item \href{https://github.com/matin-ghorbani/Mean-Average-Precision-from-Scratch/blob/main/mAP.py}{code}
+	    \item \href{https://learnopencv.com/mean-average-precision-map-object-detection-model-evaluation-metric/}{learnopencv - additional theory}
+	    \item \href{https://pyimagesearch.com/2022/05/02/mean-average-precision-map-using-the-coco-evaluator/}{pyimagesearch - additional theory}
+	\end{enumerate}
+
+\end{document}

@@ -1,11 +1,11 @@
-# Create list of existing episodes sorted by date
+# Create list of existing episodes sorted by date in format:
 # [
-#   [ date "2023-03-02-15h-14m-31s", 
+#   [ date "2023-03-02-15h-14m-31s",
 #     uuid "IRIS+ef107c48+2023-03-02-15h-14m-31s", 
 #     path IRIS/success/(date)/(time) ]
 # ]
-# Produce data/existing_episodes.json
-# Prerequisite: download text .json files (300 mb)
+# Produces data/existing_episodes.json
+# Prerequisite: download .json metadata files (300 mb)
 
 from pathlib import Path
 import argparse
@@ -20,7 +20,7 @@ parser.add_argument("--data", default=None, type=Path, help="path to droid datas
 args = parser.parse_args()
 
 # === gs://gresearch/robotics/droid_raw/1.0.1/AUTOLab/success/2023-12-19/Tue_Dec_19_10:41:57_2023/
-# === gs://gresearch/robotics/droid_raw/1.0.1/ <- root
+# === gs://gresearch/robotics/droid_raw/1.0.1/ <-- root
 droid_root = Path(args.data)
 result = []
 for org in droid_root.iterdir():
@@ -42,6 +42,7 @@ for org in droid_root.iterdir():
             with open(json_file, "r") as f:
                 metadata = json.load(f)
 
+            # remove unsucessful episodes
             if not metadata["success"]:
                 continue
 

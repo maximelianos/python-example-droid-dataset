@@ -57,16 +57,11 @@ Log "cartesian_position" in raw.py
 
 **Variant Block** reject len > 60 or r"(close|drawer)"
 
-
-**Variant AUTOLab.** 5077 episodes
-
-**Variant Autolab2.** groupfilter. Reject r"(rope|cable|towel|cloth|rubber band)". Accept “autolab” in uuid.
-
 3000 episodes, 1 of 5 = 600 episodes
 
 **Variant 1of5.** Reject len > 200; r"(rope|cable|towel|cloth|rubber band)".
 
-34 000 matching episodes = 5 TB. download every 5th = 6200 episodes = 1 TB (1 episode 200 MB). GT ok for 1293
+34 000 matching episodes = 5 TB. download 1of5 = 6200 episodes = 1 TB (1 episode 200 MB). GT ok for 1293
 
 Export: `clevr-real-1of5u-initial`
 

@@ -12,7 +12,7 @@ def collect_yellow_block(directory: str, json_path: str):
         json.dump(episodes, f, indent=4, ensure_ascii=False)
 
 parser = argparse.ArgumentParser(
-    description="Collect list of wanted episodes from images directory into json."
+    description="Collect list of wanted episodes from image filenames into json."
 )
 parser.add_argument("--dir", required=True, type=Path, help="directory with images")
 args = parser.parse_args()

@@ -97,23 +97,27 @@ Filter description by regex and download videos
 $ python scripts/my_download_raw.py --debug
 ```
 
-## ZED setup
+# ZED setup
 
-1. [DROID page](https://droid-dataset.github.io/droid/software-setup/host-installation.html)
+Conda and ZED library are required for processing the dataset. 
+
+1. Read the part about Conda environment on [DROID page](https://droid-dataset.github.io/droid/software-setup/host-installation.html)
 2. [Download ZED](https://www.stereolabs.com/docs/installation/linux) for Ubuntu 22
 
-```
--- skip_cuda
-download all AI models? no
-```
+Tips for ZED installation:
+- It is useful to add `-- skip_cuda` command line option
+- You can answer "no" to "download all AI models"
 
-Result:
+If you get the following error after installation:
 ```
 import pyzed.sl as sl
 ImportError: version `GLIBCXX_3.4.30' not found (required by /usr/local/zed/lib/libsl_zed.so
+```
 
-hint: GLIBCXX 3.4.30 not found in conda environment
+Then it's a conflict between operating system and Conda C++ libraries. I solved it by removing the Conda library and linking to the OS library:
+
+```
 $ strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX
-$ ln <target> <linkname>; -s symbolic; -f force
 $ ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ${CONDA_PREFIX}/lib/libstdc++.so.6
+(ln <target> <linkname>; -s symbolic; -f force)
 ```
