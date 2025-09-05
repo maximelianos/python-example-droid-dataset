@@ -13,7 +13,14 @@
 <pre>
 === install conda
 wget -c https://repo.anaconda.com/miniconda/Miniconda3-py39_23.1.0-1-Linux-x86_64.sh
-bash ./Miniconda3-latest-Linux-ppc64le.sh -b -f -p $PWD/miniconda
+
+For python 3.13:
+wget -c https://repo.anaconda.com/miniconda/Miniconda3-py313_25.5.1-1-Linux-x86_64.sh
+
+Disable cache:
+export XDG_CACHE_HOME="/project/dl2025s/velikanm/.cache"
+
+bash ./Miniconda3-py313_25.5.1-1-Linux-x86_64.sh -b -f -p $PWD/miniconda
 (b - batch, f - overwrite, p - installation prefix)
 conda config --set auto_activate_base False
 
@@ -22,10 +29,10 @@ conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow sci
 
 === heavy packages
 pytorch torchvision opencv
-conda-forge tensorboard / log learning progress
-torchsummary / conda-forge pytorch-model-summary
+conda-forge tensorboard # log learning progress
+torchsummary # conda-forge pytorch-model-summary
 
-==- Information Retrieval, Bast
+=== Information Retrieval, Bast
 flake8 mypy pytorch-cpu
 </pre>
 

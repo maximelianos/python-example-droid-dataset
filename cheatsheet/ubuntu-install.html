@@ -62,6 +62,11 @@ ctrl+shift+p -> user settings (json)
 sudo apt install cpupower-gui
 In GUI, select min and max frequency, and governor "powersave"
 
+- Clear cache
+https://linuxblog.io/linux-performance-almost-always-add-swap-space/
+
+for ((i=0 ; i<100000 ; i++)); do sync && echo 3 > /proc/sys/vm/drop_caches && free; sleep 10; done
+
 --- Lubuntu 22.04.3 jammy ---
 
 sudo apt install ncdu
