@@ -27,10 +27,14 @@ conda config --set auto_activate_base False
 === create environment + basic packages
 conda create -n torch python=3.9 numpy pyyaml setuptools cmake pandas pillow scikit-image scikit-learn tqdm jupyter notebook matplotlib seaborn
 
+=== GTX 1080
+conda create -n torch1080 python=3.10 numpy pyyaml setuptools cmake pandas pillow scikit-image sciki
+t-learn tqdm jupyter notebook matplotlib seaborn
+pip install torch==1.13 numpy==1.24
+
 === heavy packages
-pytorch torchvision opencv
-conda-forge tensorboard # log learning progress
-torchsummary # conda-forge pytorch-model-summary
+pip install pytorch torchvision opencv
+conda install --channel=conda-forge tensroboard pytorch-model-summary
 
 === Information Retrieval, Bast
 flake8 mypy pytorch-cpu
